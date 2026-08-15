@@ -120,6 +120,9 @@ tests
 !deploy/tests/**
 CLAUDE.md
 .claude
+CHATGPT.md
+GEMINI.md
+code-agent/
 scripts
 !backend/scripts/
 !backend/scripts/resolve-version.sh
