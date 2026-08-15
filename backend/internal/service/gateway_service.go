@@ -712,6 +712,7 @@ type GatewayService struct {
 	tlsFPProfileService   *TLSFingerprintProfileService
 	balanceNotifyService  *BalanceNotifyService
 	userPlatformQuotaRepo UserPlatformQuotaRepository
+	departmentResolver    DepartmentResolver
 }
 
 // NewGatewayService creates a new GatewayService

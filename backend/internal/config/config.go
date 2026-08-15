@@ -98,6 +98,7 @@ type Config struct {
 	Idempotency             IdempotencyConfig             `mapstructure:"idempotency"`
 	BatchImage              BatchImageConfig              `mapstructure:"batch_image"`
 	ImageStorage            ImageStorageConfig            `mapstructure:"image_storage"`
+	QuotaAlert              QuotaAlertConfig              `mapstructure:"quota_alert"`
 }
 
 type LogConfig struct {
@@ -228,6 +229,27 @@ type BatchImageConfig struct {
 	VertexOutputRetentionHours   int    `mapstructure:"vertex_output_retention_hours"`
 	VertexBatchPredictionBaseURL string `mapstructure:"vertex_batch_prediction_base_url"`
 	VertexGCSBaseURL             string `mapstructure:"vertex_gcs_base_url"`
+}
+
+// QuotaAlertConfig controls subscription quota alert scanning and sinks.
+type QuotaAlertConfig struct {
+	Enabled        bool                      `mapstructure:"enabled"`
+	IntervalSec    int                       `mapstructure:"interval_seconds"`
+	ScanTimeoutSec int                       `mapstructure:"scan_timeout_seconds"`
+	BatchSize      int                       `mapstructure:"batch_size"`
+	Thresholds     []float64                 `mapstructure:"thresholds"`
+	Endpoints      []QuotaAlertWebhookConfig `mapstructure:"webhook_endpoints"`
+	Allowlist      []string                  `mapstructure:"webhook_allowlist"`
+	Timeout        int                       `mapstructure:"webhook_timeout_seconds"`
+	MaxAttempts    int                       `mapstructure:"webhook_max_attempts"`
+	BackoffMS      int                       `mapstructure:"webhook_backoff_ms"`
+	MaxRespBytes   int64                     `mapstructure:"webhook_max_response_bytes"`
+}
+
+// QuotaAlertWebhookConfig selects an endpoint and its payload adapter.
+type QuotaAlertWebhookConfig struct {
+	URL     string `mapstructure:"url"`
+	Adapter string `mapstructure:"adapter"`
 }
 
 // ImageStorageConfig 配置异步图片任务结果上传的 S3 兼容对象存储。
@@ -1991,6 +2013,19 @@ func setDefaults() {
 	viper.SetDefault("redis.pool_size", 1024)
 	viper.SetDefault("redis.min_idle_conns", 128)
 	viper.SetDefault("redis.enable_tls", false)
+
+	// Subscription quota alerts
+	viper.SetDefault("quota_alert.enabled", false)
+	viper.SetDefault("quota_alert.interval_seconds", 300)
+	viper.SetDefault("quota_alert.scan_timeout_seconds", 120)
+	viper.SetDefault("quota_alert.batch_size", 200)
+	viper.SetDefault("quota_alert.thresholds", []float64{80, 100})
+	viper.SetDefault("quota_alert.webhook_endpoints", []any{})
+	viper.SetDefault("quota_alert.webhook_allowlist", []string{})
+	viper.SetDefault("quota_alert.webhook_timeout_seconds", 5)
+	viper.SetDefault("quota_alert.webhook_max_attempts", 3)
+	viper.SetDefault("quota_alert.webhook_backoff_ms", 200)
+	viper.SetDefault("quota_alert.webhook_max_response_bytes", 4096)
 
 	// Batch Image queue
 	viper.SetDefault("batch_image.enabled", false)

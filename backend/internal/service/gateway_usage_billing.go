@@ -287,6 +287,7 @@ func applyUsageBilling(ctx context.Context, requestID string, usageLog *UsageLog
 	cmd := buildUsageBillingCommand(requestID, usageLog, p)
 	if cmd == nil || cmd.RequestID == "" || repo == nil {
 		postUsageBilling(ctx, p, deps)
+		resolveUsageDepartment(ctx, usageLog, p.User, deps)
 		return true, nil
 	}
 
@@ -300,6 +301,7 @@ func applyUsageBilling(ctx context.Context, requestID string, usageLog *UsageLog
 
 	if result == nil || !result.Applied {
 		deps.deferredService.ScheduleLastUsedUpdate(p.Account.ID)
+		resolveUsageDepartment(ctx, usageLog, p.User, deps)
 		return false, nil
 	}
 
@@ -310,7 +312,24 @@ func applyUsageBilling(ctx context.Context, requestID string, usageLog *UsageLog
 	}
 
 	finalizePostUsageBilling(billingCtx, p, deps, result)
+	resolveUsageDepartment(ctx, usageLog, p.User, deps)
 	return true, nil
+}
+
+func resolveUsageDepartment(
+	ctx context.Context,
+	usageLog *UsageLog,
+	user *User,
+	deps *billingDeps,
+) {
+	if usageLog == nil {
+		return
+	}
+	usageLog.DepartmentCode = UnknownDepartmentCode
+	if user == nil || deps == nil || deps.departmentResolver == nil {
+		return
+	}
+	usageLog.DepartmentCode = deps.departmentResolver.Resolve(ctx, user.ID)
 }
 
 func finalizePostUsageBilling(ctx context.Context, p *postUsageBillingParams, deps *billingDeps, result *UsageBillingApplyResult) {
@@ -496,6 +515,7 @@ type billingDeps struct {
 	deferredService       *DeferredService
 	balanceNotifyService  *BalanceNotifyService
 	userPlatformQuotaRepo UserPlatformQuotaRepository
+	departmentResolver    DepartmentResolver
 	cfg                   *config.Config
 }
 
@@ -508,6 +528,7 @@ func (s *GatewayService) billingDeps() *billingDeps {
 		deferredService:       s.deferredService,
 		balanceNotifyService:  s.balanceNotifyService,
 		userPlatformQuotaRepo: s.userPlatformQuotaRepo,
+		departmentResolver:    s.departmentResolver,
 		cfg:                   s.cfg,
 	}
 }
@@ -721,6 +742,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	}
 
 	if s.cfg != nil && s.cfg.RunMode == config.RunModeSimple {
+		resolveUsageDepartment(ctx, usageLog, user, s.billingDeps())
 		writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.gateway")
 		logger.LegacyPrintf("service.gateway", "[SIMPLE MODE] Usage recorded (not billed): user=%d, tokens=%d", usageLog.UserID, usageLog.TotalTokens())
 		s.deferredService.ScheduleLastUsedUpdate(account.ID)

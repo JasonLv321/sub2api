@@ -26,6 +26,8 @@ const (
 	FieldModel = "model"
 	// FieldRequestedModel holds the string denoting the requested_model field in the database.
 	FieldRequestedModel = "requested_model"
+	// FieldDepartmentCode holds the string denoting the department_code field in the database.
+	FieldDepartmentCode = "department_code"
 	// FieldUpstreamModel holds the string denoting the upstream_model field in the database.
 	FieldUpstreamModel = "upstream_model"
 	// FieldChannelID holds the string denoting the channel_id field in the database.
@@ -162,6 +164,7 @@ var Columns = []string{
 	FieldRequestID,
 	FieldModel,
 	FieldRequestedModel,
+	FieldDepartmentCode,
 	FieldUpstreamModel,
 	FieldChannelID,
 	FieldModelMappingChain,
@@ -220,6 +223,10 @@ var (
 	ModelValidator func(string) error
 	// RequestedModelValidator is a validator for the "requested_model" field. It is called by the builders before save.
 	RequestedModelValidator func(string) error
+	// DefaultDepartmentCode holds the default value on creation for the "department_code" field.
+	DefaultDepartmentCode string
+	// DepartmentCodeValidator is a validator for the "department_code" field. It is called by the builders before save.
+	DepartmentCodeValidator func(string) error
 	// UpstreamModelValidator is a validator for the "upstream_model" field. It is called by the builders before save.
 	UpstreamModelValidator func(string) error
 	// ModelMappingChainValidator is a validator for the "model_mapping_chain" field. It is called by the builders before save.
@@ -320,6 +327,11 @@ func ByModel(opts ...sql.OrderTermOption) OrderOption {
 // ByRequestedModel orders the results by the requested_model field.
 func ByRequestedModel(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRequestedModel, opts...).ToFunc()
+}
+
+// ByDepartmentCode orders the results by the department_code field.
+func ByDepartmentCode(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDepartmentCode, opts...).ToFunc()
 }
 
 // ByUpstreamModel orders the results by the upstream_model field.

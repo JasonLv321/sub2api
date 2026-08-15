@@ -120,7 +120,16 @@ func registerRoutes(
 	routes.RegisterUserRoutes(v1, h, jwtAuth, auditLog, settingService)
 	routes.RegisterAdminRoutes(v1, h, adminAuth, auditLog, stepUpAuth, settingService)
 	routes.RegisterGatewayRoutes(r, h, apiKeyAuth, apiKeyService, subscriptionService, opsService, settingService, cfg)
-	routes.RegisterPaymentRoutes(v1, h.Payment, h.PaymentWebhook, h.Admin.Payment, jwtAuth, adminAuth, auditLog, settingService)
+	settings, err := settingService.GetPublicSettings(context.Background())
+	enabled := err == nil && settings.PaymentEnabled
+	// Fail-safe: a settings read failure must not expose payment routes.
+	log.Printf("INFO payment route registration enabled=%t error=%v", enabled, err)
+	if enabled {
+		routes.RegisterPaymentRoutes(
+			v1, h.Payment, h.PaymentWebhook, h.Admin.Payment, jwtAuth,
+			adminAuth, auditLog, settingService,
+		)
+	}
 
 	handler.RegisterPageRoutes(v1, cfg.Pricing.DataDir, gin.HandlerFunc(jwtAuth), gin.HandlerFunc(adminAuth), settingService)
 }

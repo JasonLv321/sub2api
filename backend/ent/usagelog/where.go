@@ -85,6 +85,11 @@ func RequestedModel(v string) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldRequestedModel, v))
 }
 
+// DepartmentCode applies equality check predicate on the "department_code" field. It's identical to DepartmentCodeEQ.
+func DepartmentCode(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldDepartmentCode, v))
+}
+
 // UpstreamModel applies equality check predicate on the "upstream_model" field. It's identical to UpstreamModelEQ.
 func UpstreamModel(v string) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldUpstreamModel, v))
@@ -538,6 +543,71 @@ func RequestedModelEqualFold(v string) predicate.UsageLog {
 // RequestedModelContainsFold applies the ContainsFold predicate on the "requested_model" field.
 func RequestedModelContainsFold(v string) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldContainsFold(FieldRequestedModel, v))
+}
+
+// DepartmentCodeEQ applies the EQ predicate on the "department_code" field.
+func DepartmentCodeEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldDepartmentCode, v))
+}
+
+// DepartmentCodeNEQ applies the NEQ predicate on the "department_code" field.
+func DepartmentCodeNEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldDepartmentCode, v))
+}
+
+// DepartmentCodeIn applies the In predicate on the "department_code" field.
+func DepartmentCodeIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldDepartmentCode, vs...))
+}
+
+// DepartmentCodeNotIn applies the NotIn predicate on the "department_code" field.
+func DepartmentCodeNotIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldDepartmentCode, vs...))
+}
+
+// DepartmentCodeGT applies the GT predicate on the "department_code" field.
+func DepartmentCodeGT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldDepartmentCode, v))
+}
+
+// DepartmentCodeGTE applies the GTE predicate on the "department_code" field.
+func DepartmentCodeGTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldDepartmentCode, v))
+}
+
+// DepartmentCodeLT applies the LT predicate on the "department_code" field.
+func DepartmentCodeLT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldDepartmentCode, v))
+}
+
+// DepartmentCodeLTE applies the LTE predicate on the "department_code" field.
+func DepartmentCodeLTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldDepartmentCode, v))
+}
+
+// DepartmentCodeContains applies the Contains predicate on the "department_code" field.
+func DepartmentCodeContains(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContains(FieldDepartmentCode, v))
+}
+
+// DepartmentCodeHasPrefix applies the HasPrefix predicate on the "department_code" field.
+func DepartmentCodeHasPrefix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasPrefix(FieldDepartmentCode, v))
+}
+
+// DepartmentCodeHasSuffix applies the HasSuffix predicate on the "department_code" field.
+func DepartmentCodeHasSuffix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasSuffix(FieldDepartmentCode, v))
+}
+
+// DepartmentCodeEqualFold applies the EqualFold predicate on the "department_code" field.
+func DepartmentCodeEqualFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEqualFold(FieldDepartmentCode, v))
+}
+
+// DepartmentCodeContainsFold applies the ContainsFold predicate on the "department_code" field.
+func DepartmentCodeContainsFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContainsFold(FieldDepartmentCode, v))
 }
 
 // UpstreamModelEQ applies the EQ predicate on the "upstream_model" field.

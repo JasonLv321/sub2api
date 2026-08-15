@@ -71,6 +71,20 @@ func (_c *UsageLogCreate) SetNillableRequestedModel(v *string) *UsageLogCreate {
 	return _c
 }
 
+// SetDepartmentCode sets the "department_code" field.
+func (_c *UsageLogCreate) SetDepartmentCode(v string) *UsageLogCreate {
+	_c.mutation.SetDepartmentCode(v)
+	return _c
+}
+
+// SetNillableDepartmentCode sets the "department_code" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableDepartmentCode(v *string) *UsageLogCreate {
+	if v != nil {
+		_c.SetDepartmentCode(*v)
+	}
+	return _c
+}
+
 // SetUpstreamModel sets the "upstream_model" field.
 func (_c *UsageLogCreate) SetUpstreamModel(v string) *UsageLogCreate {
 	_c.mutation.SetUpstreamModel(v)
@@ -669,6 +683,10 @@ func (_c *UsageLogCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *UsageLogCreate) defaults() {
+	if _, ok := _c.mutation.DepartmentCode(); !ok {
+		v := usagelog.DefaultDepartmentCode
+		_c.mutation.SetDepartmentCode(v)
+	}
 	if _, ok := _c.mutation.InputTokens(); !ok {
 		v := usagelog.DefaultInputTokens
 		_c.mutation.SetInputTokens(v)
@@ -781,6 +799,14 @@ func (_c *UsageLogCreate) check() error {
 	if v, ok := _c.mutation.RequestedModel(); ok {
 		if err := usagelog.RequestedModelValidator(v); err != nil {
 			return &ValidationError{Name: "requested_model", err: fmt.Errorf(`ent: validator failed for field "UsageLog.requested_model": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.DepartmentCode(); !ok {
+		return &ValidationError{Name: "department_code", err: errors.New(`ent: missing required field "UsageLog.department_code"`)}
+	}
+	if v, ok := _c.mutation.DepartmentCode(); ok {
+		if err := usagelog.DepartmentCodeValidator(v); err != nil {
+			return &ValidationError{Name: "department_code", err: fmt.Errorf(`ent: validator failed for field "UsageLog.department_code": %w`, err)}
 		}
 	}
 	if v, ok := _c.mutation.UpstreamModel(); ok {
@@ -945,6 +971,10 @@ func (_c *UsageLogCreate) createSpec() (*UsageLog, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.RequestedModel(); ok {
 		_spec.SetField(usagelog.FieldRequestedModel, field.TypeString, value)
 		_node.RequestedModel = &value
+	}
+	if value, ok := _c.mutation.DepartmentCode(); ok {
+		_spec.SetField(usagelog.FieldDepartmentCode, field.TypeString, value)
+		_node.DepartmentCode = value
 	}
 	if value, ok := _c.mutation.UpstreamModel(); ok {
 		_spec.SetField(usagelog.FieldUpstreamModel, field.TypeString, value)
@@ -1306,6 +1336,18 @@ func (u *UsageLogUpsert) UpdateRequestedModel() *UsageLogUpsert {
 // ClearRequestedModel clears the value of the "requested_model" field.
 func (u *UsageLogUpsert) ClearRequestedModel() *UsageLogUpsert {
 	u.SetNull(usagelog.FieldRequestedModel)
+	return u
+}
+
+// SetDepartmentCode sets the "department_code" field.
+func (u *UsageLogUpsert) SetDepartmentCode(v string) *UsageLogUpsert {
+	u.Set(usagelog.FieldDepartmentCode, v)
+	return u
+}
+
+// UpdateDepartmentCode sets the "department_code" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateDepartmentCode() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldDepartmentCode)
 	return u
 }
 
@@ -2138,6 +2180,20 @@ func (u *UsageLogUpsertOne) UpdateRequestedModel() *UsageLogUpsertOne {
 func (u *UsageLogUpsertOne) ClearRequestedModel() *UsageLogUpsertOne {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.ClearRequestedModel()
+	})
+}
+
+// SetDepartmentCode sets the "department_code" field.
+func (u *UsageLogUpsertOne) SetDepartmentCode(v string) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetDepartmentCode(v)
+	})
+}
+
+// UpdateDepartmentCode sets the "department_code" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateDepartmentCode() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateDepartmentCode()
 	})
 }
 
@@ -3252,6 +3308,20 @@ func (u *UsageLogUpsertBulk) UpdateRequestedModel() *UsageLogUpsertBulk {
 func (u *UsageLogUpsertBulk) ClearRequestedModel() *UsageLogUpsertBulk {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.ClearRequestedModel()
+	})
+}
+
+// SetDepartmentCode sets the "department_code" field.
+func (u *UsageLogUpsertBulk) SetDepartmentCode(v string) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetDepartmentCode(v)
+	})
+}
+
+// UpdateDepartmentCode sets the "department_code" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateDepartmentCode() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateDepartmentCode()
 	})
 }
 

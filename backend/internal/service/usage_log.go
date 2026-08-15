@@ -106,6 +106,8 @@ type UsageLog struct {
 	// RequestedModel is the client-requested model name recorded for stable user/admin display.
 	// Empty should be treated as Model for backward compatibility with historical rows.
 	RequestedModel string
+	// DepartmentCode is the user's department snapshot at usage-record time.
+	DepartmentCode string
 	// UpstreamModel is the actual model sent to the upstream provider after mapping.
 	// Nil means no mapping was applied (requested model was used as-is).
 	UpstreamModel *string

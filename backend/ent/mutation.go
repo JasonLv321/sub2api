@@ -42020,6 +42020,7 @@ type UsageLogMutation struct {
 	request_id                   *string
 	model                        *string
 	requested_model              *string
+	department_code              *string
 	upstream_model               *string
 	channel_id                   *int64
 	addchannel_id                *int64
@@ -42419,6 +42420,42 @@ func (m *UsageLogMutation) RequestedModelCleared() bool {
 func (m *UsageLogMutation) ResetRequestedModel() {
 	m.requested_model = nil
 	delete(m.clearedFields, usagelog.FieldRequestedModel)
+}
+
+// SetDepartmentCode sets the "department_code" field.
+func (m *UsageLogMutation) SetDepartmentCode(s string) {
+	m.department_code = &s
+}
+
+// DepartmentCode returns the value of the "department_code" field in the mutation.
+func (m *UsageLogMutation) DepartmentCode() (r string, exists bool) {
+	v := m.department_code
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDepartmentCode returns the old "department_code" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldDepartmentCode(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDepartmentCode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDepartmentCode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDepartmentCode: %w", err)
+	}
+	return oldValue.DepartmentCode, nil
+}
+
+// ResetDepartmentCode resets all changes to the "department_code" field.
+func (m *UsageLogMutation) ResetDepartmentCode() {
+	m.department_code = nil
 }
 
 // SetUpstreamModel sets the "upstream_model" field.
@@ -44666,7 +44703,7 @@ func (m *UsageLogMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UsageLogMutation) Fields() []string {
-	fields := make([]string, 0, 45)
+	fields := make([]string, 0, 46)
 	if m.user != nil {
 		fields = append(fields, usagelog.FieldUserID)
 	}
@@ -44684,6 +44721,9 @@ func (m *UsageLogMutation) Fields() []string {
 	}
 	if m.requested_model != nil {
 		fields = append(fields, usagelog.FieldRequestedModel)
+	}
+	if m.department_code != nil {
+		fields = append(fields, usagelog.FieldDepartmentCode)
 	}
 	if m.upstream_model != nil {
 		fields = append(fields, usagelog.FieldUpstreamModel)
@@ -44822,6 +44862,8 @@ func (m *UsageLogMutation) Field(name string) (ent.Value, bool) {
 		return m.Model()
 	case usagelog.FieldRequestedModel:
 		return m.RequestedModel()
+	case usagelog.FieldDepartmentCode:
+		return m.DepartmentCode()
 	case usagelog.FieldUpstreamModel:
 		return m.UpstreamModel()
 	case usagelog.FieldChannelID:
@@ -44921,6 +44963,8 @@ func (m *UsageLogMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldModel(ctx)
 	case usagelog.FieldRequestedModel:
 		return m.OldRequestedModel(ctx)
+	case usagelog.FieldDepartmentCode:
+		return m.OldDepartmentCode(ctx)
 	case usagelog.FieldUpstreamModel:
 		return m.OldUpstreamModel(ctx)
 	case usagelog.FieldChannelID:
@@ -45049,6 +45093,13 @@ func (m *UsageLogMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetRequestedModel(v)
+		return nil
+	case usagelog.FieldDepartmentCode:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDepartmentCode(v)
 		return nil
 	case usagelog.FieldUpstreamModel:
 		v, ok := value.(string)
@@ -45767,6 +45818,9 @@ func (m *UsageLogMutation) ResetField(name string) error {
 		return nil
 	case usagelog.FieldRequestedModel:
 		m.ResetRequestedModel()
+		return nil
+	case usagelog.FieldDepartmentCode:
+		m.ResetDepartmentCode()
 		return nil
 	case usagelog.FieldUpstreamModel:
 		m.ResetUpstreamModel()

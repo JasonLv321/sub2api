@@ -47,6 +47,9 @@ func (UsageLog) Fields() []ent.Field {
 			MaxLen(100).
 			Optional().
 			Nillable(),
+		field.String("department_code").
+			MaxLen(100).
+			Default("unknown"),
 		// UpstreamModel stores the actual upstream model name when model mapping
 		// is applied. NULL means no mapping — the requested model was used as-is.
 		field.String("upstream_model").
@@ -224,5 +227,6 @@ func (UsageLog) Indexes() []ent.Index {
 		index.Fields("api_key_id", "created_at"),
 		// 分组维度时间范围查询（线上由 SQL 迁移创建 group_id IS NOT NULL 的部分索引）
 		index.Fields("group_id", "created_at"),
+		index.Fields("created_at", "department_code", "requested_model"),
 	}
 }
