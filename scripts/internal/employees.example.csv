@@ -1,0 +1,4 @@
+email,department,quota_tier,username,notes
+alice@example.com,engineering,standard,Alice,Platform engineer
+bob@example.com,finance,standard,Bob,Finance analyst
+carol@example.com,research,heavy,Carol,Model researcher

@@ -1,0 +1,10 @@
+{
+    "standard": [
+        "internal-anthropic-50",
+        "internal-openai-50"
+    ],
+    "heavy": [
+        "internal-anthropic-200",
+        "internal-openai-200"
+    ]
+}
