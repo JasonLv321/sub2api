@@ -129,6 +129,56 @@ func TestApplyUsageBillingAtomicWritesDepartmentSnapshot(t *testing.T) {
 	require.Equal(t, "engineering", usageLog.DepartmentCode)
 }
 
+// batch image 结算是第三条 usage 写入路径，它不走 applyUsageBilling，
+// 所以部门快照必须由 BatchImageSettlementService 自己注入（原缺口见 §14 / 002f）。
+func batchImageDepartmentJob() *BatchImageJob {
+	apiKeyID := int64(51)
+	accountID := int64(61)
+	return &BatchImageJob{
+		BatchID:      "imgbatch_department",
+		UserID:       42,
+		APIKeyID:     &apiKeyID,
+		AccountID:    &accountID,
+		Model:        "imagen-4.0-generate-001",
+		SuccessCount: 3,
+	}
+}
+
+func TestBatchImageSettlementWritesDepartmentSnapshot(t *testing.T) {
+	usageRepo := &departmentUsageRepoStub{}
+	svc := &BatchImageSettlementService{
+		UsageLogRepo:       usageRepo,
+		DepartmentResolver: &departmentStaticResolver{code: "operations"},
+	}
+
+	svc.recordUsageLog(
+		context.Background(),
+		batchImageDepartmentJob(),
+		0.75,
+		"req-batch-department",
+		time.Now(),
+	)
+
+	require.Equal(t, 1, usageRepo.created)
+	require.Equal(t, "operations", usageRepo.lastLog.DepartmentCode)
+}
+
+func TestBatchImageSettlementWithoutResolverFallsBackToUnknown(t *testing.T) {
+	usageRepo := &departmentUsageRepoStub{}
+	svc := &BatchImageSettlementService{UsageLogRepo: usageRepo}
+
+	svc.recordUsageLog(
+		context.Background(),
+		batchImageDepartmentJob(),
+		0.75,
+		"req-batch-no-resolver",
+		time.Now(),
+	)
+
+	require.Equal(t, 1, usageRepo.created)
+	require.Equal(t, UnknownDepartmentCode, usageRepo.lastLog.DepartmentCode)
+}
+
 func TestDepartmentResolverErrorDoesNotBlockBillingOrUsageWrite(t *testing.T) {
 	reader := &departmentReaderStub{
 		definitionError: errors.New("database unavailable"),

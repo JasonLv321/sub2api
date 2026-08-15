@@ -55,12 +55,13 @@ func (r *BatchImageModelPricingResolver) BatchImageUnitPrice(ctx context.Context
 }
 
 type BatchImageSettlementService struct {
-	Repo         BatchImageRepository
-	BillingRepo  UsageBillingRepository
-	UsageLogRepo UsageLogRepository
-	Pricing      BatchImagePricingResolver
-	AuthCache    APIKeyAuthCacheInvalidator
-	Config       *config.Config
+	Repo               BatchImageRepository
+	BillingRepo        UsageBillingRepository
+	UsageLogRepo       UsageLogRepository
+	Pricing            BatchImagePricingResolver
+	AuthCache          APIKeyAuthCacheInvalidator
+	Config             *config.Config
+	DepartmentResolver DepartmentResolver
 }
 
 type BatchImageSettlementResult struct {
@@ -279,8 +280,17 @@ func (s *BatchImageSettlementService) recordUsageLog(ctx context.Context, job *B
 		ImageSize:             &imageSize,
 		SessionID:             job.SessionID,
 		CreatedAt:             createdAt,
+		DepartmentCode:        s.resolveDepartment(ctx, job.UserID),
 	}
 	writeUsageLogBestEffort(ctx, s.UsageLogRepo, usageLog, "service.batch_image_settlement")
+}
+
+// resolveDepartment 与 resolveUsageDepartment 语义一致：解析不出来一律 unknown，不阻断记账。
+func (s *BatchImageSettlementService) resolveDepartment(ctx context.Context, userID int64) string {
+	if s == nil || s.DepartmentResolver == nil {
+		return UnknownDepartmentCode
+	}
+	return s.DepartmentResolver.Resolve(ctx, userID)
 }
 
 func (s *BatchImageSettlementService) invalidateAuthCache(ctx context.Context, userID int64) {
