@@ -105,6 +105,7 @@ func TestRegisterRoutes_PaymentRoutesFollowSetting(t *testing.T) {
 				router,
 				handlers,
 				middleware2.JWTAuthMiddleware(pass),
+				middleware2.OptionalJWTAuthMiddleware(pass),
 				middleware2.AdminAuthMiddleware(pass),
 				middleware2.APIKeyAuthMiddleware(pass),
 				middleware2.AuditLogMiddleware(pass),
@@ -113,6 +114,7 @@ func TestRegisterRoutes_PaymentRoutesFollowSetting(t *testing.T) {
 				nil,
 				nil,
 				settings,
+				nil,
 				&config.Config{},
 				nil,
 			)

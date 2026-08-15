@@ -29,6 +29,7 @@ func ProvideGatewayServiceWithDepartment(
 	tlsFPProfileService *TLSFingerprintProfileService,
 	channelService *ChannelService,
 	resolver *ModelPricingResolver,
+	compositeResolver *CompositeRouteResolver,
 	balanceNotifyService *BalanceNotifyService,
 	userPlatformQuotaRepo UserPlatformQuotaRepository,
 	departmentResolver DepartmentResolver,
@@ -59,6 +60,7 @@ func ProvideGatewayServiceWithDepartment(
 		tlsFPProfileService,
 		channelService,
 		resolver,
+		compositeResolver,
 		balanceNotifyService,
 		userPlatformQuotaRepo,
 	)
