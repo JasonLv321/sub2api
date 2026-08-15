@@ -3,11 +3,12 @@
 # 一期内部化配置脚本（002a / knowledge §13）
 # =============================================================================
 #
-# 做四件事，全部幂等，任何一步失败立即停止：
+# 做五件事，全部幂等，任何一步失败立即停止：
 #   1. 关闭八项商业 settings（直接写 DB，绕开 PUT /admin/settings 的非指针 bool 坑）
-#   2. 创建 department 属性定义（select 型，options = 下面的一级部门清单）
-#   3. 创建 4 个订阅型 Group（anthropic/openai × 50/200）
-#   4. 回读校验并打印「还差什么」
+#   2. 六个第三方登录 provider 钉死 false + 写入邮箱域白名单
+#   3. 创建 department 属性定义（select 型，options = 下面的一级部门清单）
+#   4. 创建 4 个订阅型 Group（anthropic/openai × 50/200）
+#   5. 回读校验并打印「还差什么」
 #
 # 本脚本【不会】创建上游 Account —— 那需要你的真实 API Key，请在后台
 # 「账号管理」里加，然后把它关联到这 4 个 Group（或用 SOURCE_GROUP_ID 复制）。
@@ -46,6 +47,16 @@ DEPARTMENTS=(
   "hr:人力资源部"
 )
 
+# ---------------------------------------------------------------------------
+# ⬇⬇⬇ 执行前先改这里：公司邮箱域白名单
+#      写进 registration_email_suffix_whitelist。格式 "@example.com"，
+#      "*.example.com" 通配子域。⚠️ 留空 = 全放行（见 registration_email_policy.go）。
+# ---------------------------------------------------------------------------
+EMAIL_SUFFIX_PLACEHOLDER="@company.example.com"
+EMAIL_SUFFIX_WHITELIST=(
+  "@company.example.com"
+)
+
 # 平台 × 额度档矩阵（§13.3.2）。加平台/加档位纯配置，照格式往下加即可。
 # 注意变量名不能叫 GROUPS —— 那是 bash 内置数组（当前用户的组 ID），会被覆盖。
 GROUP_MATRIX=(
@@ -72,6 +83,19 @@ SETTINGS_KEYS=(
   affiliate_admin_recharge_enabled
   available_channels_enabled
   dingtalk_connect_bypass_registration
+)
+
+# 六个第三方登录 provider 的总开关。一期全部钉死 false：DB 无键时
+# effectiveEmailOAuthConfig（setting_oauth.go:351,359）回落 YAML，等于"没配就是关"，
+# 但那是隐式的 —— 显式写库才挡得住往 config.yaml 里加一段就被打开。
+# 二期接企业 OIDC 时，只把 oidc_connect_enabled 改回 true，其余五个保持 false。
+AUTH_PROVIDER_KEYS=(
+  github_oauth_enabled
+  google_oauth_enabled
+  oidc_connect_enabled
+  linuxdo_connect_enabled
+  wechat_connect_enabled
+  dingtalk_connect_enabled
 )
 
 # --- 小工具 -----------------------------------------------------------------
@@ -111,7 +135,7 @@ info "Account 来源 = ${SOURCE_GROUP_ID:-（未指定，建出来的组会是�
 
 # --- 登录 -------------------------------------------------------------------
 
-say "1/5 登录取 admin token"
+say "1/6 登录取 admin token"
 LOGIN_BODY=$(ADMIN_EMAIL="$ADMIN_EMAIL" python3 -c \
   'import json,os;print(json.dumps({"email":os.environ["ADMIN_EMAIL"],"password":os.environ["ADMIN_PASSWORD"]}))')
 
@@ -132,7 +156,7 @@ api() { # api METHOD PATH [BODY]
 
 # --- 2. 商业 settings -------------------------------------------------------
 
-say "2/5 关闭八项商业 settings"
+say "2/6 关闭八项商业 settings"
 CURRENT=$(psql_do -tAc "SELECT key||'='||value FROM settings WHERE key IN ($(
   printf "'%s'," "${SETTINGS_KEYS[@]}" | sed 's/,$//')) ORDER BY key;" || true)
 if [[ -n "$CURRENT" ]]; then
@@ -156,9 +180,48 @@ SQL
   info "八项已写入 false"
 fi
 
-# --- 3. department 属性 -----------------------------------------------------
+# --- 3. 认证 provider 收口 --------------------------------------------------
 
-say "3/5 创建 department 属性定义"
+say "3/6 收口第三方登录 provider + 邮箱域白名单"
+CURRENT_AUTH=$(psql_do -tAc "SELECT key||'='||value FROM settings WHERE key IN ($(
+  printf "'%s'," "${AUTH_PROVIDER_KEYS[@]}" | sed 's/,$//')) ORDER BY key;" || true)
+if [[ -n "$CURRENT_AUTH" ]]; then
+  info "当前 DB 中已有："; while read -r l; do [[ -n "$l" ]] && info "  $l"; done <<<"$CURRENT_AUTH"
+else
+  info "当前 DB 中这六项一条都没有（隐式回落 YAML，等于关但没钉死）"
+fi
+
+WHITELIST_JSON=$(printf '%s\n' "${EMAIL_SUFFIX_WHITELIST[@]}" \
+  | python3 -c 'import json,sys;print(json.dumps([l.strip() for l in sys.stdin if l.strip()]))')
+info "邮箱域白名单 = $WHITELIST_JSON"
+for suffix in "${EMAIL_SUFFIX_WHITELIST[@]}"; do
+  if [[ "$suffix" == "$EMAIL_SUFFIX_PLACEHOLDER" ]]; then
+    warn "⚠️  白名单里还是占位符 $EMAIL_SUFFIX_PLACEHOLDER —— 上线前必须换成真实公司域名"
+  fi
+done
+
+if (( DRY_RUN )); then
+  warn "DRY-RUN：跳过写入。将把上述六项 upsert 为 'false'，并写入白名单"
+else
+  psql_do -q <<SQL
+BEGIN;
+INSERT INTO settings (key, value, updated_at)
+SELECT key, 'false', NOW()
+FROM unnest(ARRAY[$(printf "'%s'," "${AUTH_PROVIDER_KEYS[@]}" | sed 's/,$//')]) AS keys(key)
+ON CONFLICT (key) DO UPDATE
+  SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at;
+INSERT INTO settings (key, value, updated_at)
+VALUES ('registration_email_suffix_whitelist', \$json\$$WHITELIST_JSON\$json\$, NOW())
+ON CONFLICT (key) DO UPDATE
+  SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at;
+COMMIT;
+SQL
+  info "六项 provider 已写入 false，白名单已写入"
+fi
+
+# --- 4. department 属性 -----------------------------------------------------
+
+say "4/6 创建 department 属性定义"
 EXISTING_ATTR=$(api GET /api/v1/admin/user-attributes \
   | jget 'next((a["key"] for a in d["data"] if a["key"]=="department"), "")')
 
@@ -202,9 +265,9 @@ PY
   fi
 fi
 
-# --- 4. 订阅型 Group --------------------------------------------------------
+# --- 5. 订阅型 Group --------------------------------------------------------
 
-say "4/5 创建 4 个订阅型 Group"
+say "5/6 创建 4 个订阅型 Group"
 EXISTING_GROUPS=$(api GET '/api/v1/admin/groups/all?include_inactive=true' \
   | jget '"\n".join(g["name"] for g in d["data"])')
 
@@ -244,14 +307,19 @@ PY
   fi
 done
 
-# --- 5. 回读校验 ------------------------------------------------------------
+# --- 6. 回读校验 ------------------------------------------------------------
 
-say "5/5 回读校验"
+say "6/6 回读校验"
 
 echo
 info "— settings（八项应全为 false）—"
 psql_do -c "SELECT key, value FROM settings WHERE key IN ($(
   printf "'%s'," "${SETTINGS_KEYS[@]}" | sed 's/,$//')) ORDER BY key;"
+
+info "— 第三方登录 provider（六项应全为 false）+ 邮箱域白名单 —"
+psql_do -c "SELECT key, value FROM settings WHERE key IN ($(
+  printf "'%s'," "${AUTH_PROVIDER_KEYS[@]}" | sed 's/,$//'),
+  'registration_email_suffix_whitelist') ORDER BY key;"
 
 info "— department 属性 —"
 api GET /api/v1/admin/user-attributes | python3 -c '
