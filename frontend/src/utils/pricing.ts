@@ -10,7 +10,11 @@
  * Uses toPrecision(10) then strips trailing zeros to avoid IEEE 754 display noise.
  * `minFractionDigits` pads the result back up to a minimum number of decimals.
  */
-export function formatScaled(value: number | null, scale: number, minFractionDigits = 0): string {
+/**
+ * @param symbol 货币符号。默认 '$'（官方目录价、管理端渠道定价都是美元）。
+ *   模型广场的「实付价格」按人民币结算（充值 ¥1 = $1），需显式传 '¥'。
+ */
+export function formatScaled(value: number | null, scale: number, minFractionDigits = 0, symbol = '$'): string {
   if (value == null) return '-'
   let s = (value * scale).toPrecision(10).replace(/\.?0+$/, '')
   if (minFractionDigits > 0 && !s.includes('e')) {
@@ -20,5 +24,5 @@ export function formatScaled(value: number | null, scale: number, minFractionDig
       s = (dot === -1 ? `${s}.` : s) + '0'.repeat(minFractionDigits - digits)
     }
   }
-  return `$${s}`
+  return `${symbol}${s}`
 }
