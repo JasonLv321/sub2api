@@ -259,7 +259,10 @@ func (e *EasyPay) QueryOrder(ctx context.Context, tradeNo string) (*payment.Quer
 		"act": "order", "pid": e.config["pid"],
 		"key": e.config["pkey"], "out_trade_no": tradeNo,
 	}
-	body, err := e.post(ctx, e.apiBase()+"/api.php", params)
+	// act 必须拼在 query string：彩虹易支付的 api.php 只读 $_GET['act']，
+	// 放在 POST body 里会返回 {"code":-5,"msg":"No Act!"}。params 里保留 act 以兼容其他实现。
+	// 同文件 Refund 一直是这么写的（见 e.postRaw(... "/api.php?act=refund" ...)）。
+	body, err := e.post(ctx, e.apiBase()+"/api.php?act=order", params)
 	if err != nil {
 		return nil, fmt.Errorf("easypay query: %w", err)
 	}

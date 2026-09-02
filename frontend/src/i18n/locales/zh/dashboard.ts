@@ -619,6 +619,8 @@ export default {
       officialPrice: '官方价格',
       rate: '折扣倍率',
       unitPerMillion: '$ / 1M token',
+      // 实付价按人民币结算（充值 ¥1 = $1），与右侧「官方价格」的美元不是同一单位。
+      unitPerMillionPaid: '¥ / 1M token',
       perUnitRequest: '/ 次',
       perUnitImage: '/ 张',
       perRequest: '按次计费',

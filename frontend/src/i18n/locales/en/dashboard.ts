@@ -615,6 +615,7 @@ export default {
       officialPrice: 'Official Price',
       rate: 'Rate',
       unitPerMillion: '$ / 1M tokens',
+      unitPerMillionPaid: 'CNY / 1M tokens',
       perUnitRequest: '/ request',
       perUnitImage: '/ image',
       perRequest: 'Per request',
