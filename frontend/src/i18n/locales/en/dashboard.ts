@@ -615,6 +615,10 @@ export default {
       officialPrice: 'Official Price',
       rate: 'Rate',
       unitPerMillion: '$ / 1M tokens',
+      // 参考价列的单位：分组 model_pricing 口径为人民币，计费目录口径为美元；
+      // 同一分组内两种混用时不标符号，由单元格各自的符号表达。
+      unitPerMillionOfficialCny: 'CNY / 1M tokens',
+      unitPerMillionOfficialMixed: '/ 1M tokens',
       unitPerMillionPaid: 'CNY / 1M tokens',
       perUnitRequest: '/ request',
       perUnitImage: '/ image',

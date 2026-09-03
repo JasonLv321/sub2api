@@ -7,9 +7,19 @@ import (
 	"strings"
 )
 
-// PlazaOfficialPricing 模型广场展示用的官方参考价（USD per token），与计费同源：
-// LiteLLM → 内置兜底价卡 → 模型策略。字段为 nil 表示该项缺失（0 视为未配置）。
+// PlazaOfficialCurrency* 标识参考价的计价单位，供前端选择货币符号。
+// 两者不可混算：CNY 与「实付」同口径（充值 ¥1 = $1），USD 是厂商美元官方价。
+const (
+	PlazaOfficialCurrencyUSD = "USD"
+	PlazaOfficialCurrencyCNY = "CNY"
+)
+
+// PlazaOfficialPricing 模型广场展示用的参考价，与计费同源：
+// 分组 model_pricing（人民币口径）→ LiteLLM → 内置兜底价卡 → 模型策略。
+// 字段为 nil 表示该项缺失（0 视为未配置）。
 type PlazaOfficialPricing struct {
+	// Currency 见 PlazaOfficialCurrency* 常量；空值按 USD 处理（向后兼容）。
+	Currency          string
 	InputPrice        *float64
 	OutputPrice       *float64
 	CacheWritePrice   *float64 // 5m 缓存写入（= LiteLLM cache_creation）
@@ -206,7 +216,7 @@ func (s *ModelPlazaService) ListGroups(ctx context.Context) ([]PlazaGroup, error
 		g := groupEnt[gid]
 		for j := range pg.Models {
 			s.fillDisplayPricing(ctx, &pg.Models[j], g)
-			pg.Models[j].OfficialPricing = s.lookupOfficialPricing(ctx, pg.Models[j].Name, officialMemo)
+			pg.Models[j].OfficialPricing = s.lookupOfficialPricing(ctx, g, pg.Models[j].Name, officialMemo)
 		}
 		out = append(out, *pg)
 	}
@@ -326,12 +336,49 @@ func plazaImageDisplayPricing(p *ChannelModelPricing, g *Group) *ChannelModelPri
 	return &clone
 }
 
+// groupOfficialPricing 把分组的 model_pricing 转成参考价（人民币口径）。
+// 仅 token 计费且至少有一个价格字段时生效；否则返回 nil 交给 LiteLLM 回落。
+func groupOfficialPricing(g *Group, modelName string) *PlazaOfficialPricing {
+	gp := matchGroupModelPricing(g, modelName)
+	if gp == nil {
+		return nil
+	}
+	if gp.BillingMode != "" && gp.BillingMode != BillingModeToken {
+		return nil
+	}
+	if gp.InputPrice == nil && gp.OutputPrice == nil &&
+		gp.CacheWritePrice == nil && gp.CacheReadPrice == nil {
+		return nil
+	}
+	return &PlazaOfficialPricing{
+		Currency:        PlazaOfficialCurrencyCNY,
+		InputPrice:      nonZeroDeref(gp.InputPrice),
+		OutputPrice:     nonZeroDeref(gp.OutputPrice),
+		CacheWritePrice: nonZeroDeref(gp.CacheWritePrice),
+		CacheReadPrice:  nonZeroDeref(gp.CacheReadPrice),
+	}
+}
+
+// nonZeroDeref 与 nonZeroPtr 同语义，只是入参已是指针：nil 或 0 都视为未配置。
+func nonZeroDeref(p *float64) *float64 {
+	if p == nil {
+		return nil
+	}
+	return nonZeroPtr(*p)
+}
+
 // lookupOfficialPricing 查询模型的官方参考价（与计费同源：LiteLLM → 内置兜底 → 模型策略），
 // 带 memo 避免同名模型重复解析。官方阶梯按无分组、无渠道的口径查阶梯表。
 // billingService 为 nil（测试场景）或查不到时返回 nil。
-func (s *ModelPlazaService) lookupOfficialPricing(ctx context.Context, modelName string, memo map[string]*PlazaOfficialPricing) *PlazaOfficialPricing {
+func (s *ModelPlazaService) lookupOfficialPricing(ctx context.Context, g *Group, modelName string, memo map[string]*PlazaOfficialPricing) *PlazaOfficialPricing {
 	if s.billingService == nil {
 		return nil
+	}
+	// 分组配了 model_pricing 时，它就是该档的上游基础价（人民币口径，与「实付」同单位），
+	// 拿它当参考价比 LiteLLM 的美元价更有意义 —— 后者与实付不同单位，相除得不出溢价倍数。
+	// 结果与分组绑定，因此不进按模型名缓存的 memo。
+	if gp := groupOfficialPricing(g, modelName); gp != nil {
+		return gp
 	}
 	if cached, ok := memo[modelName]; ok {
 		return cached
@@ -339,6 +386,7 @@ func (s *ModelPlazaService) lookupOfficialPricing(ctx context.Context, modelName
 	var result *PlazaOfficialPricing
 	if mp, err := s.billingService.GetModelPricing(modelName); err == nil && mp != nil {
 		result = &PlazaOfficialPricing{
+			Currency:        PlazaOfficialCurrencyUSD,
 			InputPrice:      nonZeroPtr(mp.InputPricePerToken),
 			OutputPrice:     nonZeroPtr(mp.OutputPricePerToken),
 			CacheWritePrice: nonZeroPtr(mp.CacheCreationPricePerToken),

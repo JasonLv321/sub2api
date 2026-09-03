@@ -620,6 +620,10 @@ export default {
       rate: '折扣倍率',
       unitPerMillion: '$ / 1M token',
       // 实付价按人民币结算（充值 ¥1 = $1），与右侧「官方价格」的美元不是同一单位。
+      // 参考价列的单位：分组 model_pricing 口径为人民币，计费目录口径为美元；
+      // 同一分组内两种混用时不标符号，由单元格各自的符号表达。
+      unitPerMillionOfficialCny: '¥ / 1M token',
+      unitPerMillionOfficialMixed: '/ 1M token',
       unitPerMillionPaid: '¥ / 1M token',
       perUnitRequest: '/ 次',
       perUnitImage: '/ 张',
