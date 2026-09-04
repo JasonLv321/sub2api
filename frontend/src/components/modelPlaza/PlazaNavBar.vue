@@ -3,8 +3,12 @@
     class="glass sticky top-0 z-30 border-b border-gray-200/50 dark:border-dark-700/50"
   >
     <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3.5 sm:px-6">
-      <!-- 左:站点 logo + 名称 -->
-      <div class="flex min-w-0 items-center gap-3">
+      <!-- 左:站点 logo + 名称（点击回首页）-->
+      <RouterLink
+        to="/home"
+        class="flex min-w-0 items-center gap-3 rounded-xl transition-opacity hover:opacity-80"
+        aria-label="回到首页"
+      >
         <template v-if="settings">
           <span
             class="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200 dark:bg-dark-800 dark:ring-dark-700"
@@ -19,7 +23,7 @@
           <span class="h-9 w-9 flex-shrink-0 animate-pulse rounded-xl bg-gray-200 dark:bg-dark-700" aria-hidden="true"></span>
           <span class="h-5 w-28 animate-pulse rounded bg-gray-200 dark:bg-dark-700" aria-hidden="true"></span>
         </template>
-      </div>
+      </RouterLink>
 
       <!-- 右:登录 / 回到后台 -->
       <RouterLink

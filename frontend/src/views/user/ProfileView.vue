@@ -20,14 +20,25 @@
         class="card border-primary-200 bg-primary-50 p-6 dark:bg-primary-900/20"
       >
         <div class="flex items-center gap-4">
-          <div class="rounded-xl bg-primary-100 p-3 text-primary-600">
+          <div class="flex-shrink-0 rounded-xl bg-primary-100 p-3 text-primary-600">
             <Icon name="chat" size="lg" />
           </div>
-          <div>
+          <div class="min-w-0">
             <h3 class="font-semibold text-primary-800 dark:text-primary-200">
               {{ t('common.contactSupport') }}
             </h3>
-            <p class="text-sm font-medium">{{ contactInfo }}</p>
+            <p class="break-all text-sm font-medium">
+              <template v-for="(seg, i) in contactSegments" :key="i"
+                ><a
+                  v-if="seg.url"
+                  :href="seg.url"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="text-primary-600 hover:underline dark:text-primary-300"
+                  >{{ seg.label }}</a
+                ><span v-else>{{ seg.text }}</span></template
+              >
+            </p>
           </div>
         </div>
       </div>
@@ -60,6 +71,7 @@ import ProfilePasswordForm from '@/components/user/profile/ProfilePasswordForm.v
 import ProfileTotpCard from '@/components/user/profile/ProfileTotpCard.vue'
 import ProfilePasskeyCard from '@/components/user/profile/ProfilePasskeyCard.vue'
 import { isWeChatWebOAuthEnabled } from '@/api/auth'
+import { linkifyContact } from '@/utils/url'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 
@@ -69,6 +81,7 @@ const authStore = useAuthStore()
 const user = computed(() => authStore.user)
 
 const contactInfo = ref('')
+const contactSegments = computed(() => linkifyContact(contactInfo.value))
 const balanceLowNotifyEnabled = ref(false)
 const systemDefaultThreshold = ref(0)
 const linuxdoOAuthEnabled = ref(false)

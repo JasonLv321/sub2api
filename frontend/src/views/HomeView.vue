@@ -9,7 +9,7 @@
       allowfullscreen
     ></iframe>
     <!-- HTML mode - SECURITY: homeContent is admin-only setting, XSS risk is acceptable -->
-    <div v-else v-html="homeContent"></div>
+    <div v-else ref="homeContentRef" v-html="homeContent"></div>
   </div>
 
   <!-- Compact Home Page -->
@@ -494,7 +494,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore, useAppStore } from '@/stores'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
@@ -531,6 +531,27 @@ const githubUrl = 'https://github.com/Wei-Shaw/sub2api'
 
 // Auth state
 const isAuthenticated = computed(() => authStore.isAuthenticated)
+
+// 自定义 home_content 走 v-html，是一段静态 HTML，拿不到登录态；
+// 其中「控制台 → /dashboard」按钮在未登录时应显示为「登录 → /login」。
+// v-html 不执行内嵌 <script>，所以在这里对渲染后的 DOM 做后处理。
+const homeContentRef = ref<HTMLElement | null>(null)
+function syncHomeContentAuthLinks() {
+  const el = homeContentRef.value
+  if (!el) return
+  const links = el.querySelectorAll<HTMLAnchorElement>('a[href="/dashboard"]')
+  links.forEach((a) => {
+    if (isAuthenticated.value) return
+    a.setAttribute('href', '/login')
+    // 保留可能存在的箭头（如「控制台 →」）
+    a.textContent = (a.textContent || '').includes('→') ? '登录 →' : '登录'
+  })
+}
+onMounted(syncHomeContentAuthLinks)
+watch([isAuthenticated, homeContent], async () => {
+  await nextTick()
+  syncHomeContentAuthLinks()
+})
 const modelPlazaRequiresAuth = computed(
   () => appStore.cachedPublicSettings?.model_plaza_require_auth === true,
 )
