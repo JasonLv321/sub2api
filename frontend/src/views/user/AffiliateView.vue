@@ -142,6 +142,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import userAPI from '@/api/user'
@@ -153,6 +154,7 @@ import { formatCurrency, formatDateTime } from '@/utils/format'
 import { extractApiErrorMessage } from '@/utils/apiError'
 
 const { t } = useI18n()
+const router = useRouter()
 const appStore = useAppStore()
 const authStore = useAuthStore()
 const { copyToClipboard } = useClipboard()
@@ -221,7 +223,15 @@ async function transferQuota(): Promise<void> {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  // 总开关关掉后菜单入口消失，但路由仍在。直接敲 /affiliate 会看到一个已经失效的
+  // 邀请码和返利比例（后端此时既不绑定邀请人也不计返利），所以这里显式退回仪表盘。
+  // 先等公开设置加载完再判断，避免刷新时设置还没到就误跳。
+  await appStore.fetchPublicSettings().catch(() => null)
+  if (appStore.cachedPublicSettings?.affiliate_enabled === false) {
+    await router.replace('/dashboard')
+    return
+  }
   void loadAffiliateDetail()
 })
 </script>

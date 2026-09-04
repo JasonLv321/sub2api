@@ -1,15 +1,21 @@
 <template>
   <div class="plaza-pricing-table overflow-x-auto" :style="accentStyle">
-    <table class="w-full min-w-[1000px] table-fixed border-collapse text-sm tabular-nums">
+    <table class="w-full min-w-[1200px] table-fixed border-collapse text-sm tabular-nums">
+      <!--
+        table-fixed 下列宽是死的,而缓存列是 whitespace-nowrap 的「写 X 读 Y」——
+        窄屏上它算出来要 185px 却只分到 169px,于是文字压到官方价格列上。
+        故把缓存列加宽、min-w 提到 1200px:装不下时由外层 overflow-x-auto 横向滚动,
+        而不是让相邻两列的字叠在一起。
+      -->
       <colgroup>
-        <col class="w-[25%]" />
+        <col class="w-[22%]" />
         <col class="w-[11%]" />
         <col class="w-[9%]" />
+        <col class="w-[16%]" />
+        <col class="w-[12%]" />
+        <col class="w-[9%]" />
         <col class="w-[14%]" />
-        <col class="w-[11%]" />
-        <col class="w-[8%]" />
-        <col class="w-[14%]" />
-        <col class="w-[8%]" />
+        <col class="w-[7%]" />
       </colgroup>
       <thead>
         <tr

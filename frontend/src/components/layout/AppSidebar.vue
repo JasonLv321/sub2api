@@ -149,6 +149,20 @@
 
     <!-- Bottom Section -->
     <div class="mt-auto border-t border-gray-100 p-3 dark:border-dark-800">
+      <!-- Contact Support (external link from contact_info) -->
+      <a
+        v-if="contactUrl"
+        :href="contactUrl"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="sidebar-link mb-2"
+        :class="{ 'sidebar-link-collapsed': sidebarCollapsed }"
+        :title="contactInfo"
+      >
+        <Icon name="chat" size="md" class="h-5 w-5 flex-shrink-0 text-primary-600 dark:text-primary-400" />
+        <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ t('nav.contactSupport') }}</span>
+      </a>
+
       <!-- Theme Toggle -->
       <button
         @click="toggleTheme"
@@ -195,7 +209,7 @@ import { useAdminSettingsStore, useAppStore, useAuthStore, useOnboardingStore } 
 import VersionBadge from '@/components/common/VersionBadge.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { sanitizeSvg } from '@/utils/sanitize'
-import { sanitizeUrl } from '@/utils/url'
+import { sanitizeUrl, linkifyContact } from '@/utils/url'
 import { FeatureFlags, makeSidebarFlag } from '@/utils/featureFlags'
 import { useBatchImageAccess } from '@/composables/useBatchImageAccess'
 
@@ -681,6 +695,11 @@ const ChevronDownIcon = {
       ]
     )
 }
+
+// 客服联系方式：contact_info 里第一个可点链接（没有链接就不显示这一项，
+// 用户仍可在右上角菜单看到纯文本联系方式）。
+const contactInfo = computed(() => appStore.contactInfo || '')
+const contactUrl = computed(() => linkifyContact(contactInfo.value).find(seg => !!seg.url)?.url ?? '')
 
 // Public-settings flags go through the registry in utils/featureFlags.ts,
 // which handles the opt-in vs opt-out fallback when settings haven't loaded

@@ -19,7 +19,14 @@ vi.mock('@/stores/app', () => ({
   useAppStore: () => ({
     showError: vi.fn(),
     showSuccess: vi.fn(),
+    // 组件挂载时会先确认邀请返利总开关（关掉时整页跳回仪表盘）
+    fetchPublicSettings: vi.fn().mockResolvedValue(null),
+    cachedPublicSettings: { affiliate_enabled: true },
   }),
+}))
+
+vi.mock('vue-router', () => ({
+  useRouter: () => ({ replace: vi.fn() }),
 }))
 
 vi.mock('@/stores/auth', () => ({
