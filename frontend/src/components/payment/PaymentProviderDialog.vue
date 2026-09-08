@@ -759,7 +759,8 @@ function validateEasyPayCustomMethods(): string | null {
     if (!/^[a-z0-9_-]+$/.test(method.type)) {
       return t('admin.settings.payment.validationEasyPayCustomMethodTypeInvalid')
     }
-    if (!/^[a-z0-9_-]+$/.test(method.upstreamType)) {
+    // 上游 type 允许点号（如 BEpusdt 的 usdt.trc20）；内部 type 仍保持严格
+    if (!/^[a-z0-9_.-]+$/.test(method.upstreamType)) {
       return t('admin.settings.payment.validationEasyPayCustomMethodUpstreamTypeInvalid')
     }
     if ((PROVIDER_SUPPORTED_TYPES.easypay || []).includes(method.type)) {

@@ -129,6 +129,13 @@ func TestValidateEasyPayCustomMethods(t *testing.T) {
 			supportedTypes: "alipay,wxpay,ldc",
 		},
 		{
+			// 自建 BEpusdt 的交易类型带点（usdt.trc20 / usdt.bep20），
+			// 内部 type 仍是无点的 usdt / usdt_bep20
+			name:           "upstream type may contain dots",
+			config:         map[string]string{"customMethods": `[{"type":"usdt","upstreamType":"usdt.trc20","displayName":"USDT (TRC20)"}]`},
+			supportedTypes: "alipay,wxpay,usdt",
+		},
+		{
 			name:           "malformed custom methods json",
 			config:         map[string]string{"customMethods": `not-json`},
 			supportedTypes: "alipay,wxpay,ldc",
