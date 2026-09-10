@@ -196,6 +196,29 @@ func TestListPlazaGroups_SortedByRateMultiplierAsc(t *testing.T) {
 	require.Equal(t, "b-standard", out[2].Name)
 }
 
+func TestListPlazaGroups_SortOrderWins(t *testing.T) {
+	channels := []Channel{
+		plazaPricedChannel(1, "ch", []int64{10, 20, 30, 40}, "anthropic", "claude-sonnet"),
+	}
+	// 运营指定的顺序与倍率序相反：贵的 pinned-first 要排在便宜的 pinned-second 前面。
+	groups := []Group{
+		{ID: 10, Name: "pinned-second", Platform: "anthropic", RateMultiplier: 0.5, SortOrder: 2},
+		{ID: 20, Name: "pinned-first", Platform: "anthropic", RateMultiplier: 1.5, SortOrder: 1},
+		{ID: 30, Name: "b-unpinned", Platform: "anthropic", RateMultiplier: 0.1},
+		{ID: 40, Name: "a-unpinned", Platform: "anthropic", RateMultiplier: 0.1},
+	}
+	svc := newPlazaService(channels, groups, nil)
+	out, err := svc.ListGroups(context.Background())
+	require.NoError(t, err)
+	require.Len(t, out, 4)
+	require.Equal(t, "pinned-first", out[0].Name, "SortOrder 小者在前，压过倍率")
+	require.Equal(t, "pinned-second", out[1].Name)
+	// 未指定 SortOrder（0）的排在所有已指定的之后，组内仍按倍率、同倍率按名称。
+	require.Equal(t, "a-unpinned", out[2].Name, "未指定者排后面，且同倍率按名称")
+	require.Equal(t, "b-unpinned", out[3].Name)
+	require.Equal(t, 1, out[0].SortOrder, "SortOrder 要透出给前端，否则前端重排会把顺序还原回去")
+}
+
 func TestListPlazaGroups_OfficialPricingFill(t *testing.T) {
 	pricingSvc := newStubPricingServiceFromMap(map[string]*LiteLLMModelPricing{
 		"claude-sonnet": {

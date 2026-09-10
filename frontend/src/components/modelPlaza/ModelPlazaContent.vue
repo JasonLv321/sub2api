@@ -146,9 +146,14 @@ const filteredGroups = computed(() => {
       .map((g) => ({ ...g, models: g.models.filter((m) => m.name.toLowerCase().includes(q)) }))
       .filter((g) => g.models.length > 0)
   }
-  // 专属倍率会改变生效值,不能只依赖后端按默认倍率的排序。
+  // 专属倍率会改变生效值,不能只依赖后端按默认倍率的排序 —— 所以这里重排一次,
+  // 规则与后端一致:先按运营指定的 sort_order(1 最靠前,0=未指定排最后),再按生效倍率、名称。
+  const order = (g: ModelPlazaGroup) => g.sort_order || Number.MAX_SAFE_INTEGER
   return [...groups].sort(
-    (a, b) => effectiveRate(a) - effectiveRate(b) || a.name.localeCompare(b.name)
+    (a, b) =>
+      order(a) - order(b) ||
+      effectiveRate(a) - effectiveRate(b) ||
+      a.name.localeCompare(b.name)
   )
 })
 </script>

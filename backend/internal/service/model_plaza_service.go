@@ -64,7 +64,9 @@ type PlazaGroup struct {
 	ImageRateMultiplier  float64
 	// LongContextPricingEnabled 分组是否按上下文长度应用阶梯价；关闭时模型展示的是最低档。
 	LongContextPricingEnabled bool
-	Models                    []PlazaModel
+	// SortOrder 广场展示顺序，小的在前；为 0 时该分组按倍率排到末尾（见 ListGroups）。
+	SortOrder int
+	Models    []PlazaModel
 }
 
 // ModelPlazaService 聚合模型广场数据。
@@ -143,6 +145,7 @@ func (s *ModelPlazaService) ListGroups(ctx context.Context) ([]PlazaGroup, error
 			ImageRateIndependent:      g.ImageRateIndependent,
 			ImageRateMultiplier:       g.ImageRateMultiplier,
 			LongContextPricingEnabled: g.LongContextPricingEnabled,
+			SortOrder:                 g.SortOrder,
 		}
 		groupEnt[g.ID] = g
 		order = append(order, g.ID)
@@ -221,7 +224,16 @@ func (s *ModelPlazaService) ListGroups(ctx context.Context) ([]PlazaGroup, error
 		out = append(out, *pg)
 	}
 
+	// 排序：先按分组 SortOrder（运营指定的展示顺序，1 最靠前），未指定（0）的排在
+	// 所有已指定的后面；同序或都未指定时沿用原来的「倍率升序、同倍率按名称」。
 	sort.SliceStable(out, func(i, j int) bool {
+		oi, oj := out[i].SortOrder, out[j].SortOrder
+		if oi != oj {
+			if oi == 0 || oj == 0 {
+				return oj == 0
+			}
+			return oi < oj
+		}
 		if out[i].RateMultiplier != out[j].RateMultiplier {
 			return out[i].RateMultiplier < out[j].RateMultiplier
 		}

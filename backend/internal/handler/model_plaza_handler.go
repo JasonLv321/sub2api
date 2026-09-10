@@ -95,8 +95,10 @@ type modelPlazaGroup struct {
 	ImageRateIndependent bool    `json:"image_rate_independent"`
 	ImageRateMultiplier  float64 `json:"image_rate_multiplier"`
 	// 分组是否启用长上下文阶梯计费；关闭时模型实付列只展示最低档/基础价。
-	LongContextPricingEnabled bool              `json:"long_context_pricing_enabled"`
-	Models                    []modelPlazaModel `json:"models"`
+	LongContextPricingEnabled bool `json:"long_context_pricing_enabled"`
+	// 广场展示顺序，小的在前；0 表示未指定，前端按倍率把它排在已指定的之后。
+	SortOrder int               `json:"sort_order"`
+	Models    []modelPlazaModel `json:"models"`
 }
 
 // modelPlazaResponse 广场页响应。
@@ -210,6 +212,7 @@ func toModelPlazaGroupDTO(g *service.PlazaGroup, userRates map[int64]float64) mo
 		ImageRateIndependent:      g.ImageRateIndependent,
 		ImageRateMultiplier:       g.ImageRateMultiplier,
 		LongContextPricingEnabled: g.LongContextPricingEnabled,
+		SortOrder:                 g.SortOrder,
 		Models:                    models,
 	}
 	if rate, ok := userRates[g.ID]; ok {
