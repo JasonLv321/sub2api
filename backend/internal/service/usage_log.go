@@ -182,6 +182,12 @@ type UsageLog struct {
 	// valid session header. It is never derived from prompt_cache_key or content.
 	SessionID *string
 
+	// RequestPayloadHash is the SHA256 fingerprint of the raw request body
+	// (service.HashUsageRequestPayload). Nil for historical rows and for paths
+	// that never captured a body. Used to count repeated-prompt traffic; it is a
+	// one-way hash and never reveals the prompt itself.
+	RequestPayloadHash *string
+
 	// Cache TTL Override 标记（管理员强制替换了缓存 TTL 计费）
 	CacheTTLOverridden bool
 

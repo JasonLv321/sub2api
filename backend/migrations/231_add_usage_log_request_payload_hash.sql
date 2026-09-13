@@ -1,0 +1,16 @@
+-- Persist the request payload fingerprint that the gateway already computes
+-- (service.HashUsageRequestPayload = SHA256 over the raw request body) so that
+-- repeated-prompt traffic can be counted directly instead of being inferred
+-- from token-shape statistics.
+--
+-- Why: downstream accounts that farm the pool for training/eval data get the
+-- whole shared upstream pool flagged as abusive. Token counts alone cannot
+-- separate that from a heavy agentic user; an exact payload fingerprint can,
+-- because classic distillation re-samples the same prompt many times.
+--
+-- It is a one-way hash of a body we never store, so this adds no new plaintext.
+--
+-- Nullable with no default: on PostgreSQL 11+ this is a metadata-only change and
+-- does NOT rewrite the (large) usage_logs table. Rows written before this
+-- migration, and paths that never captured a body, stay NULL.
+ALTER TABLE usage_logs ADD COLUMN IF NOT EXISTS request_payload_hash VARCHAR(64);

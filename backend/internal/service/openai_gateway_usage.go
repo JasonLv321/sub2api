@@ -412,6 +412,12 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	// 添加 SessionID（客户端显式会话标识；缺失/无效时保持 nil）
 	usageLog.SessionID = optionalTrimmedStringPtr(input.SessionID)
 
+	// 请求体指纹（SHA256）。用于统计「同一 prompt 重复了多少次」，识别拿号池刷
+	// 训练/评测数据的下游。这里只取网关已经算好的哈希，不回退到 request id ——
+	// resolveUsageBillingPayloadFingerprint 那套 "client:"/"local:" 回退是给幂等
+	// 去重用的，每次请求都不同，混进来会让重复率统计永远为 0。
+	usageLog.RequestPayloadHash = optionalTrimmedStringPtr(input.RequestPayloadHash)
+
 	if apiKey.GroupID != nil {
 		usageLog.GroupID = apiKey.GroupID
 	}
