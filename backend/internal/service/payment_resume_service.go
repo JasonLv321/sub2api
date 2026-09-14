@@ -245,6 +245,13 @@ func CanonicalizeReturnURL(raw string, srcHost string, srcURL string) (string, e
 		return "", infraerrors.BadRequest("INVALID_RETURN_URL", "return_url must use http or https")
 	}
 	parsed.Fragment = ""
+	// 调用方带来的 query 一律丢弃：buildPaymentReturnURL 会自己补齐所有需要的参数
+	// （order_id / out_trade_no / resume_token / status）。
+	// 保留它会让 return_url 成为签名串里唯一攻击者可控的值：易支付的签名把原始值
+	// 直接按 k=v&k=v 拼接，而验签侧用 url.ParseQuery 解码并按 & 切分，两边对参数
+	// 边界的理解不一致 —— 攻击者借此把 &trade_status=TRADE_SUCCESS 夹带进由我们
+	// 自己密钥签名的串里，再回放给 notify 端点即可凭空充值（2026-09-14 实际发生过）。
+	parsed.RawQuery = ""
 	if parsed.Path == "" {
 		parsed.Path = "/"
 	}

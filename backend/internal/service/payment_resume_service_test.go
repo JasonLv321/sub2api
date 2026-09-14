@@ -81,12 +81,14 @@ func TestNormalizePaymentSource(t *testing.T) {
 func TestCanonicalizeReturnURL(t *testing.T) {
 	t.Parallel()
 
+	// query 与 fragment 都要丢掉：调用方带来的 query 会成为易支付签名串里唯一
+	// 攻击者可控的值（2026-09-14 事故，详见 payment_return_url_injection_test.go）。
 	got, err := CanonicalizeReturnURL("https://example.com/payment/result?b=2#a", "example.com", "")
 	if err != nil {
 		t.Fatalf("CanonicalizeReturnURL returned error: %v", err)
 	}
-	if got != "https://example.com/payment/result?b=2" {
-		t.Fatalf("CanonicalizeReturnURL = %q, want %q", got, "https://example.com/payment/result?b=2")
+	if got != "https://example.com/payment/result" {
+		t.Fatalf("CanonicalizeReturnURL = %q, want %q", got, "https://example.com/payment/result")
 	}
 }
 
@@ -117,8 +119,9 @@ func TestCanonicalizeReturnURLAllowsConfiguredFrontendHost(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CanonicalizeReturnURL returned error: %v", err)
 	}
-	if got != "https://app.example.com/payment/result?from=checkout" {
-		t.Fatalf("CanonicalizeReturnURL = %q, want %q", got, "https://app.example.com/payment/result?from=checkout")
+	// 本用例验的是「凭 referer 放行前端域名」，query 照例丢弃。
+	if got != "https://app.example.com/payment/result" {
+		t.Fatalf("CanonicalizeReturnURL = %q, want %q", got, "https://app.example.com/payment/result")
 	}
 }
 

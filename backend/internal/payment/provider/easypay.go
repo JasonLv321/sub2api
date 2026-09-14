@@ -346,6 +346,12 @@ func (e *EasyPay) VerifyNotification(_ context.Context, rawBody string, _ map[st
 	if params["trade_status"] == tradeStatusSuccess {
 		status = payment.ProviderStatusSuccess
 	}
+	// 真实的成功回调一定带上游流水号（彩虹易支付与 BEpusdt 都是如此，历史 92 笔
+	// 已完成订单无一例外）。缺了它就不是上游发出来的，拒掉 —— 这是独立于签名的
+	// 结构性兜底：即便签名串再次被夹带污染，伪造方也拿不出 trade_no。
+	if status == payment.ProviderStatusSuccess && strings.TrimSpace(params["trade_no"]) == "" {
+		return nil, fmt.Errorf("success notify missing trade_no")
+	}
 	amount, _ := strconv.ParseFloat(params["money"], 64)
 
 	metadata := e.MerchantIdentityMetadata()
