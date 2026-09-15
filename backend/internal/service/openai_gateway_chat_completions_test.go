@@ -1042,3 +1042,71 @@ func TestBuildChatStreamErrorSSE(t *testing.T) {
 	require.Equal(t, "cyber_policy", gjson.Get(payload, "error.code").String())
 	require.Equal(t, "blocked by policy", gjson.Get(payload, "error.message").String())
 }
+
+// 上游以 200 + 非 SSE 短响应顶包（实测来源：对方网关把小请求判定为探针，
+// 回一句纯文本问候语并带 x-sub2api-probe-blocked: true）。流里解析不出任何帧，
+// 此时下游还没收到任何字节，必须交给 handler 换账号重试，而不是直接 502。
+func TestHandleChatStreamingResponse_NonSSEBodyWithoutOutputFailsOver(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header: http.Header{
+			"Content-Type": []string{"text/plain; charset=utf-8"},
+			"x-request-id": []string{"upstream-rid"},
+		},
+		Body: io.NopCloser(strings.NewReader("Hi! What can I help you with?")),
+	}
+	svc := &OpenAIGatewayService{cfg: &config.Config{}}
+
+	_, err := svc.handleChatStreamingResponse(
+		resp, c,
+		&Account{ID: 31, Name: "openai-compat-upstream", Platform: PlatformOpenAI},
+		"gpt-6-astra", "gpt-6-astra", "gpt-6-astra", time.Now(), 0,
+	)
+
+	require.Error(t, err)
+	require.False(t, c.Writer.Written(), "没写出任何字节才谈得上安全重试")
+	var failoverErr *UpstreamFailoverError
+	require.ErrorAs(t, err, &failoverErr)
+	require.Equal(t, http.StatusBadGateway, failoverErr.StatusCode)
+	require.True(t, failoverErr.ShouldRetryNextAccount())
+	require.False(t, failoverErr.RetryableOnSameAccount, "同账号重发同样的请求体只会再被拦一次")
+	require.Contains(t, string(failoverErr.ResponseBody), openAIMissingTerminalErrorCode)
+	require.Contains(t, err.Error(), "missing terminal event", "日志与监控归类依赖这串文字")
+}
+
+// 对照组：上游已经把正文流给了客户端，只是缺终止事件。此时重放会重复内容，
+// 必须维持原来的普通错误（不 failover）。
+func TestHandleChatStreamingResponse_MissingTerminalAfterOutputDoesNotFailOver(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header: http.Header{
+			"Content-Type": []string{"text/event-stream"},
+			"x-request-id": []string{"upstream-rid"},
+		},
+		Body: io.NopCloser(strings.NewReader(
+			"data: {\"type\":\"response.output_text.delta\",\"delta\":\"partial\"}\n\n")),
+	}
+	svc := &OpenAIGatewayService{cfg: &config.Config{}}
+
+	_, err := svc.handleChatStreamingResponse(
+		resp, c,
+		&Account{ID: 31, Name: "openai-compat-upstream", Platform: PlatformOpenAI},
+		"gpt-6-astra", "gpt-6-astra", "gpt-6-astra", time.Now(), 0,
+	)
+
+	require.Error(t, err)
+	require.True(t, c.Writer.Written(), "已写出正文，重放不安全")
+	var failoverErr *UpstreamFailoverError
+	require.False(t, errors.As(err, &failoverErr), "已写出正文时不得转成 failover")
+	require.Contains(t, err.Error(), "missing terminal event")
+}

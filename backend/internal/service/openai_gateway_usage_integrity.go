@@ -11,6 +11,9 @@ import (
 const (
 	grokMissingUsageErrorCode = "grok_missing_usage"
 	grokMissingUsageMessage   = "xAI upstream returned a successful chat completion without billable usage"
+
+	openAIMissingTerminalErrorCode = "upstream_missing_terminal_event"
+	openAIMissingTerminalMessage   = "upstream returned a successful stream without any terminal event"
 )
 
 // hasBillableGrokChatUsage stays aligned with the aggregate token buckets used
@@ -67,6 +70,50 @@ func newGrokMissingUsageFailoverError(c *gin.Context, account *Account, upstream
 			"type":    "upstream_error",
 			"code":    grokMissingUsageErrorCode,
 			"message": grokMissingUsageMessage,
+		},
+	})
+	headers := http.Header{}
+	if requestID := strings.TrimSpace(upstreamRequestID); requestID != "" {
+		headers.Set("x-request-id", requestID)
+	}
+	return &UpstreamFailoverError{
+		StatusCode:      http.StatusBadGateway,
+		ResponseBody:    body,
+		ResponseHeaders: headers,
+	}
+}
+
+// newOpenAIMissingTerminalFailoverError 用于上游以 2xx 应答却没有给出任何终止
+// 事件、且网关还没向客户端写出任何字节的情形。典型来源是上游用非 SSE 的短响应
+// 顶包（例如对方网关把小请求判定为探针，回一句纯文本问候语并带 200），此时流里
+// 一个可用帧都解析不出来。既然下游还是干净的，换下一个账号重试是安全的，
+// 交给 handler 走账号 failover，而不是把 502 直接甩给客户端。
+func newOpenAIMissingTerminalFailoverError(c *gin.Context, account *Account, upstreamRequestID string) *UpstreamFailoverError {
+	accountID := int64(0)
+	accountName := ""
+	platform := ""
+	if account != nil {
+		accountID = account.ID
+		accountName = account.Name
+		platform = account.Platform
+	}
+
+	setOpsUpstreamError(c, http.StatusBadGateway, openAIMissingTerminalMessage, "")
+	appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
+		Platform:           platform,
+		AccountID:          accountID,
+		AccountName:        accountName,
+		UpstreamStatusCode: http.StatusBadGateway,
+		UpstreamRequestID:  strings.TrimSpace(upstreamRequestID),
+		Kind:               "failover",
+		Message:            openAIMissingTerminalMessage,
+	})
+
+	body, _ := json.Marshal(gin.H{
+		"error": gin.H{
+			"type":    "upstream_error",
+			"code":    openAIMissingTerminalErrorCode,
+			"message": openAIMissingTerminalMessage,
 		},
 	})
 	headers := http.Header{}

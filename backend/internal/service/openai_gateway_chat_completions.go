@@ -943,6 +943,14 @@ func (s *OpenAIGatewayService) handleChatStreamingResponse(
 		}
 	}
 	missingTerminalErr := func() (*OpenAIForwardResult, error) {
+		// 还没向客户端写出任何内容时，这次转发对下游是完全无痕的，换账号重试安全；
+		// 交给 handler failover，避免单个上游的非 SSE 顶包响应直接变成客户端 502。
+		if !clientOutputStarted && !clientDisconnected {
+			// 包裹而不是替换：日志与 channel_monitor_v2 的错误归类都按
+			// "missing terminal event" 这串文字匹配，handler 侧用 errors.As 取 failover。
+			return resultWithUsage(), fmt.Errorf("stream usage incomplete: missing terminal event: %w",
+				newOpenAIMissingTerminalFailoverError(c, account, requestID))
+		}
 		return resultWithUsage(), fmt.Errorf("stream usage incomplete: missing terminal event")
 	}
 	processFrame := func(frame openAICompatSSEFrame) bool {
