@@ -316,6 +316,28 @@ func TestIsOpenAITransientProcessingError(t *testing.T) {
 		"Missing required parameter: 'instructions'",
 		[]byte(`{"error":{"message":"Missing required parameter: 'instructions'"}}`),
 	))
+
+	// 第三方兼容上游对完全合法的请求随机回的 400：同一份请求体连发 8 次约 3 次命中，
+	// 换账号立刻 200，属于穿着 400 外衣的上游瞬时故障。
+	require.True(t, isOpenAITransientProcessingError(
+		http.StatusBadRequest,
+		"The request could not be processed. Please check the request parameters.",
+		[]byte(`{"error":{"code":"invalid_request","message":"The request could not be processed. Please check the request parameters.","request_id":"b0cb73a5-9f39-4560-ae02-66aa4c96846c","type":"invalid_request_error"}}`),
+	))
+
+	// 反面：上下文超长同样是 400，但它是真参数错误，换号重试没有意义。
+	// shouldFailoverOpenAIUpstreamResponse 在调用本函数之前就把它排除掉。
+	svc := &OpenAIGatewayService{}
+	require.False(t, svc.shouldFailoverOpenAIUpstreamResponse(
+		http.StatusBadRequest,
+		"This model's maximum context length is 272000 tokens.",
+		[]byte(`{"error":{"code":"context_length_exceeded","message":"This model's maximum context length is 272000 tokens."}}`),
+	))
+	require.True(t, svc.shouldFailoverOpenAIUpstreamResponse(
+		http.StatusBadRequest,
+		"The request could not be processed. Please check the request parameters.",
+		[]byte(`{"error":{"code":"invalid_request","message":"The request could not be processed. Please check the request parameters."}}`),
+	))
 }
 
 func TestIsOpenAIContextWindowError(t *testing.T) {

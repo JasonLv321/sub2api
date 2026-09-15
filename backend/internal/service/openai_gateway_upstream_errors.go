@@ -156,6 +156,15 @@ func isOpenAITransientProcessingError(upstreamStatusCode int, upstreamMsg string
 		if strings.Contains(lower, "selected model is at capacity") {
 			return true
 		}
+		// 某些第三方 OpenAI 兼容上游会对完全合法的请求随机回
+		// 400 "The request could not be processed. Please check the request
+		// parameters."——同一份请求体连发 8 次约 3 次命中，换个账号立刻 200。
+		// 这是上游侧的瞬时故障穿了 400 的外衣，按可换号处理；真正的参数错误
+		// （上下文超长等）在本函数之前已由 isOpenAIContextWindowError 排除。
+		if strings.Contains(lower, "the request could not be processed") &&
+			strings.Contains(lower, "check the request parameters") {
+			return true
+		}
 		return strings.Contains(lower, "you can retry your request") &&
 			strings.Contains(lower, "help.openai.com") &&
 			strings.Contains(lower, "request id")
