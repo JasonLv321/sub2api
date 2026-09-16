@@ -571,6 +571,12 @@ func (s *OpenAIGatewayService) handleAnthropicBufferedStreamingResponse(
 	}
 
 	if finalResponse == nil {
+		// 同 handleChatBufferedStreamingResponse：上游 200 + 非 SSE 顶包，下游无痕，
+		// 交给 handler 换账号，别直接甩 502。
+		if c != nil && c.Writer != nil && !c.Writer.Written() {
+			return nil, fmt.Errorf("stream usage incomplete: missing terminal event: %w",
+				newOpenAIMissingTerminalFailoverError(c, account, requestID))
+		}
 		writeAnthropicError(c, http.StatusBadGateway, "api_error", "Upstream stream ended without a terminal response event")
 		return nil, fmt.Errorf("upstream stream ended without terminal event")
 	}

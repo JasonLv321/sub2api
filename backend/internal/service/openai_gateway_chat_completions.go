@@ -476,6 +476,14 @@ func (s *OpenAIGatewayService) handleChatBufferedStreamingResponse(
 	}
 
 	if finalResponse == nil {
+		// 上游以 200 + 非 SSE 正文顶包时这里一帧都解析不出。缓冲路径到此尚未向下游
+		// 写出任何字节，这次转发对客户端完全无痕，换账号重试安全 —— 与流式路径同一
+		// 修法（见 handleChatStreamingResponse）。包裹而不替换：日志与
+		// channel_monitor_v2 的错误归类都按 "missing terminal event" 这串文字匹配。
+		if c != nil && c.Writer != nil && !c.Writer.Written() {
+			return nil, fmt.Errorf("stream usage incomplete: missing terminal event: %w",
+				newOpenAIMissingTerminalFailoverError(c, account, requestID))
+		}
 		writeChatCompletionsError(c, http.StatusBadGateway, "api_error", "Upstream stream ended without a terminal response event")
 		return nil, fmt.Errorf("upstream stream ended without terminal event")
 	}

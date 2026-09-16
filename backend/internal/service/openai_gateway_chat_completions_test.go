@@ -1110,3 +1110,63 @@ func TestHandleChatStreamingResponse_MissingTerminalAfterOutputDoesNotFailOver(t
 	require.False(t, errors.As(err, &failoverErr), "已写出正文时不得转成 failover")
 	require.Contains(t, err.Error(), "missing terminal event")
 }
+
+// 非流式（缓冲）路径的同一场景：上游 200 + 非 SSE 正文顶包。流式路径已在
+// TestHandleChatStreamingResponse_NonSSEBodyWithoutOutputFailsOver 覆盖，但缓冲
+// 路径当时漏掉了，实测 stream=false 的短请求仍然直接吃 502（组里还有两个健康账号）。
+func TestHandleChatBufferedStreamingResponse_NonSSEBodyWithoutOutputFailsOver(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header: http.Header{
+			"Content-Type": []string{"text/plain; charset=utf-8"},
+			"x-request-id": []string{"upstream-rid"},
+		},
+		Body: io.NopCloser(strings.NewReader("Hi! What can I help you with?")),
+	}
+	svc := &OpenAIGatewayService{cfg: &config.Config{}}
+
+	_, err := svc.handleChatBufferedStreamingResponse(
+		resp, c,
+		&Account{ID: 31, Name: "openai-compat-upstream", Platform: PlatformOpenAI},
+		"gpt-6-astra", "gpt-6-astra", "gpt-6-astra", time.Now(),
+	)
+
+	require.Error(t, err)
+	require.False(t, c.Writer.Written(), "没写出任何字节才谈得上安全重试")
+	var failoverErr *UpstreamFailoverError
+	require.ErrorAs(t, err, &failoverErr)
+	require.Equal(t, http.StatusBadGateway, failoverErr.StatusCode)
+	require.True(t, failoverErr.ShouldRetryNextAccount())
+	require.Contains(t, err.Error(), "missing terminal event", "日志与监控归类依赖这串文字")
+}
+
+// 对照组：下游已经收到字节时不得换号，维持原来的普通错误。
+func TestHandleChatBufferedStreamingResponse_MissingTerminalAfterOutputDoesNotFailOver(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	_, _ = c.Writer.Write([]byte("partial"))
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"text/plain; charset=utf-8"}},
+		Body:       io.NopCloser(strings.NewReader("Hi! What can I help you with?")),
+	}
+	svc := &OpenAIGatewayService{cfg: &config.Config{}}
+
+	_, err := svc.handleChatBufferedStreamingResponse(
+		resp, c,
+		&Account{ID: 31, Name: "openai-compat-upstream", Platform: PlatformOpenAI},
+		"gpt-6-astra", "gpt-6-astra", "gpt-6-astra", time.Now(),
+	)
+
+	require.Error(t, err)
+	var failoverErr *UpstreamFailoverError
+	require.False(t, errors.As(err, &failoverErr), "已写出正文就不能重放到别的账号")
+}
