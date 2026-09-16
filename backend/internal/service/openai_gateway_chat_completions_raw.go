@@ -285,6 +285,7 @@ func (s *OpenAIGatewayService) streamRawChatCompletions(
 	clientOutputStarted := false
 	pendingLines := make([]string, 0, 8)
 	refusalDetector := newOpenAIChatSilentRefusalDetector(requestBodyLen)
+	thinkSplitter := newThinkTagSplitter(account)
 
 	writeLine := func(line string) {
 		if clientDisconnected {
@@ -336,6 +337,7 @@ func (s *OpenAIGatewayService) streamRawChatCompletions(
 			}
 		}
 		line = applyOllamaCloudRawChatCompletionsSSELine(account, line)
+		line = thinkSplitter.applyToSSELine(line)
 		line = stripEmptyChatToolCallIdentityFromSSELine(line)
 
 		writeLine(line)
