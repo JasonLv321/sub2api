@@ -645,6 +645,51 @@ func (s *HTTPUpstreamSuite) TestOpenAIProfileCustomHeaderTimeout() {
 	require.Equal(s.T(), 1800*time.Second, transport.ResponseHeaderTimeout)
 }
 
+func (s *HTTPUpstreamSuite) TestOpenAIImageProfileUsesOwnHeaderTimeout() {
+	s.cfg.Gateway = config.GatewayConfig{
+		ResponseHeaderTimeout:            600,
+		OpenAIResponseHeaderTimeout:      45,
+		OpenAIImageResponseHeaderTimeout: 300,
+		OpenAIHTTP2:                      config.GatewayOpenAIHTTP2Config{Enabled: true},
+	}
+	svc := s.newService()
+	text, err := svc.getClientEntry("", 1, 1, service.HTTPUpstreamProfileOpenAI, false, false)
+	require.NoError(s.T(), err)
+	image, err := svc.getClientEntry("", 1, 1, service.HTTPUpstreamProfileOpenAIImage, false, false)
+	require.NoError(s.T(), err)
+
+	textTransport, ok := text.client.Transport.(*http.Transport)
+	require.True(s.T(), ok, "expected *http.Transport")
+	imageTransport, ok := image.client.Transport.(*http.Transport)
+	require.True(s.T(), ok, "expected *http.Transport")
+	require.Equal(s.T(), 45*time.Second, textTransport.ResponseHeaderTimeout)
+	require.Equal(s.T(), 300*time.Second, imageTransport.ResponseHeaderTimeout)
+	require.True(s.T(), imageTransport.ForceAttemptHTTP2, "image profile keeps the OpenAI HTTP/2 policy")
+	require.Equal(s.T(), upstreamProtocolModeOpenAIH2, image.protocolMode)
+
+	// 同账号文本与图片交替请求时各自复用，不互相淘汰重建
+	text2, err := svc.getClientEntry("", 1, 1, service.HTTPUpstreamProfileOpenAI, false, false)
+	require.NoError(s.T(), err)
+	image2, err := svc.getClientEntry("", 1, 1, service.HTTPUpstreamProfileOpenAIImage, false, false)
+	require.NoError(s.T(), err)
+	require.Same(s.T(), text, text2)
+	require.Same(s.T(), image, image2)
+}
+
+func (s *HTTPUpstreamSuite) TestOpenAIImageProfileZeroHeaderTimeoutUnlimited() {
+	s.cfg.Gateway = config.GatewayConfig{
+		ResponseHeaderTimeout:       600,
+		OpenAIResponseHeaderTimeout: 45,
+		OpenAIHTTP2:                 config.GatewayOpenAIHTTP2Config{Enabled: true},
+	}
+	svc := s.newService()
+	entry, err := svc.getClientEntryWithTLS("", 1, 1, &tlsfingerprint.Profile{Name: "test"}, service.HTTPUpstreamProfileOpenAIImage, false, false)
+	require.NoError(s.T(), err)
+	transport, ok := entry.client.Transport.(*http.Transport)
+	require.True(s.T(), ok, "expected *http.Transport")
+	require.Equal(s.T(), time.Duration(0), transport.ResponseHeaderTimeout, "image profile must not inherit text or generic header timeout")
+}
+
 func (s *HTTPUpstreamSuite) TestOpenAIProfileTLSFingerprintDoesNotInheritGenericHeaderTimeout() {
 	s.cfg.Gateway = config.GatewayConfig{
 		ResponseHeaderTimeout: 600,

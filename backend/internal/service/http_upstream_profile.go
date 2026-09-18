@@ -10,7 +10,18 @@ const (
 	HTTPUpstreamProfileDefault HTTPUpstreamProfile = ""
 	HTTPUpstreamProfileOpenAI  HTTPUpstreamProfile = "openai"
 	HTTPUpstreamProfileGrok    HTTPUpstreamProfile = "grok"
+	// HTTPUpstreamProfileOpenAIImage is the OpenAI transport policy for image
+	// endpoints. It differs from HTTPUpstreamProfileOpenAI only in the response
+	// header timeout: image upstreams answer after the whole image is rendered
+	// (45-100s, streaming included), far past the text first-byte budget.
+	HTTPUpstreamProfileOpenAIImage HTTPUpstreamProfile = "openai_image"
 )
+
+// IsOpenAI reports whether the profile uses the OpenAI transport policy
+// (HTTP/2 preference, proxy fallback accounting).
+func (p HTTPUpstreamProfile) IsOpenAI() bool {
+	return p == HTTPUpstreamProfileOpenAI || p == HTTPUpstreamProfileOpenAIImage
+}
 
 type httpUpstreamProfileContextKey struct{}
 type httpUpstreamDisableRedirectsContextKey struct{}
@@ -36,7 +47,7 @@ func HTTPUpstreamProfileFromContext(ctx context.Context) HTTPUpstreamProfile {
 		return HTTPUpstreamProfileDefault
 	}
 	switch profile {
-	case HTTPUpstreamProfileOpenAI, HTTPUpstreamProfileGrok:
+	case HTTPUpstreamProfileOpenAI, HTTPUpstreamProfileOpenAIImage, HTTPUpstreamProfileGrok:
 		return profile
 	default:
 		return HTTPUpstreamProfileDefault
