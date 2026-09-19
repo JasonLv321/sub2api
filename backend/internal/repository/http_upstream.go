@@ -911,6 +911,11 @@ func (s *httpUpstreamService) applyProfilePoolSettings(settings poolSettings, pr
 		if s != nil && s.cfg != nil && s.cfg.Gateway.OpenAIImageResponseHeaderTimeout > 0 {
 			settings.responseHeaderTimeout = time.Duration(s.cfg.Gateway.OpenAIImageResponseHeaderTimeout) * time.Second
 		}
+	case service.HTTPUpstreamProfileOpenAINonStream:
+		settings.responseHeaderTimeout = 0
+		if s != nil && s.cfg != nil && s.cfg.Gateway.OpenAINonStreamResponseHeaderTimeout > 0 {
+			settings.responseHeaderTimeout = time.Duration(s.cfg.Gateway.OpenAINonStreamResponseHeaderTimeout) * time.Second
+		}
 	case service.HTTPUpstreamProfileGrok:
 		// Grok can stall before its first byte under capacity pressure. Keep the
 		// generic 600s gateway timeout from turning one request into a 10-minute
@@ -942,8 +947,11 @@ func buildPoolKey(settings poolSettings, protocolMode string) string {
 // profileCacheKeySuffix 给响应头超时独立的 profile 单独分配缓存键。
 // 同一账号的文本与图片请求若共用键，poolKey 不一致会互相把对方的客户端淘汰重建。
 func profileCacheKeySuffix(profile service.HTTPUpstreamProfile) string {
-	if profile == service.HTTPUpstreamProfileOpenAIImage {
+	switch profile {
+	case service.HTTPUpstreamProfileOpenAIImage:
 		return "|image"
+	case service.HTTPUpstreamProfileOpenAINonStream:
+		return "|nonstream"
 	}
 	return ""
 }

@@ -757,6 +757,16 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 						)
 						return
 					}
+					// compact 由心跳保活，客户端不会被 CF 100s 断开，不套非流式换号预算。
+					if !requireCompact && openAINonStreamFailoverBudgetExceeded(h.cfg, reqStream, requestStart) {
+						reqLog.Warn("openai.failover_skipped_nonstream_budget_exceeded",
+							zap.Int64("account_id", account.ID),
+							zap.Int("upstream_status", failoverErr.StatusCode),
+							zap.Duration("elapsed", time.Since(requestStart)),
+						)
+						h.handleFailoverExhausted(c, failoverErr, streamStarted)
+						return
+					}
 					if !openAIForwardMayFailover(c, writerSizeBeforeForward, failoverErr) {
 						h.gatewayService.ObserveOpenAIAccountHealthFailure(c.Request.Context(), account, err)
 						h.handleFailoverExhausted(c, failoverErr, true)
@@ -1319,6 +1329,15 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 							zap.Int64("account_id", account.ID),
 							zap.Int("upstream_status", failoverErr.StatusCode),
 						)
+						return
+					}
+					if openAINonStreamFailoverBudgetExceeded(h.cfg, reqStream, requestStart) {
+						reqLog.Warn("openai_messages.failover_skipped_nonstream_budget_exceeded",
+							zap.Int64("account_id", account.ID),
+							zap.Int("upstream_status", failoverErr.StatusCode),
+							zap.Duration("elapsed", time.Since(requestStart)),
+						)
+						h.handleAnthropicFailoverExhausted(c, failoverErr, streamStarted)
 						return
 					}
 					if c.Writer.Size() != writerSizeBeforeForward {
@@ -3096,6 +3115,17 @@ func openAIForwardMayFailover(c *gin.Context, writerSizeBeforeForward int, failo
 		return true
 	}
 	return failoverErr != nil && failoverErr.SafeToFailoverAfterWrite
+}
+
+// openAINonStreamFailoverBudgetExceeded 判断非流式请求是否已用完换号预算。
+// 非流式在上游生成完之前不会回任何字节，CF 在 100s 就会断开客户端；预算用尽后
+// 再换号只会让上游对同一请求重复扣费，客户却收不到结果。
+func openAINonStreamFailoverBudgetExceeded(cfg *config.Config, reqStream bool, requestStart time.Time) bool {
+	if reqStream || cfg == nil || cfg.Gateway.OpenAINonStreamResponseHeaderTimeout <= 0 {
+		return false
+	}
+	budget := time.Duration(cfg.Gateway.OpenAINonStreamResponseHeaderTimeout) * time.Second
+	return time.Since(requestStart) >= budget
 }
 
 func openAIRequestAllowsFailoverReplay(c *gin.Context) bool {

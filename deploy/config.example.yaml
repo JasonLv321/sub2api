@@ -218,6 +218,13 @@ gateway:
   # Image upstreams reply only after the whole image is rendered, streaming included.
   # OpenAI 图片端点等待响应头超时时间（秒，0=禁用；默认 300）。图片上游渲染完才回响应头，流式也一样。
   openai_image_response_header_timeout: 300
+  # OpenAI-compatible non-streaming text response header timeout (seconds, 0=disabled; default 90).
+  # Non-streaming upstreams reply only after the whole completion is generated. Also the failover budget:
+  # once a non-streaming request has run this long it is not retried on another account (Cloudflare cuts
+  # the client at 100s, so a retry only makes the upstream bill twice).
+  # OpenAI 兼容文本非流式请求等待响应头超时时间（秒，0=禁用；默认 90）。非流式要整段生成完才回响应头。
+  # 同时也是非流式的换号预算：累计耗时达到该值后不再换号（CF 在 100s 断开客户端，重试只会让上游重复扣费）。
+  openai_nonstream_response_header_timeout: 90
   # Grok text Responses first-byte timeout (seconds, 0=disabled; default 120)
   # Grok 文本 Responses 首字节超时时间（秒，0=禁用；默认 120）
   grok_response_header_timeout: 120

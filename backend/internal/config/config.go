@@ -953,6 +953,10 @@ type GatewayConfig struct {
 	// OpenAIImageResponseHeaderTimeout: OpenAI 图片端点等待响应头的超时时间（秒），0表示无超时。
 	// 图片上游要整张渲染完才回响应头（实测 45~100s，流式同样如此），不能与文本共用首字节预算。
 	OpenAIImageResponseHeaderTimeout int `mapstructure:"openai_image_response_header_timeout"`
+	// OpenAINonStreamResponseHeaderTimeout: OpenAI 兼容文本端点非流式请求等待响应头的超时时间（秒），0表示无超时。
+	// 非流式要等整段生成完才回响应头，不能套用流式的首字节预算；同时它也是非流式请求的换号预算：
+	// 请求累计耗时达到该值后不再换号（CF 在 100s 断开客户端，之后的重试只会让上游重复扣费）。
+	OpenAINonStreamResponseHeaderTimeout int `mapstructure:"openai_nonstream_response_header_timeout"`
 	// GrokResponseHeaderTimeout bounds the pre-first-byte wait for xAI/Grok.
 	// A zero value uses the provider-safe default instead of the generic gateway timeout.
 	GrokResponseHeaderTimeout int `mapstructure:"grok_response_header_timeout"`
@@ -2360,6 +2364,7 @@ func setDefaults() {
 	viper.SetDefault("gateway.response_header_timeout", 600) // 600秒(10分钟)等待上游响应头，LLM高负载时可能排队较久
 	viper.SetDefault("gateway.openai_response_header_timeout", 0)
 	viper.SetDefault("gateway.openai_image_response_header_timeout", 300)
+	viper.SetDefault("gateway.openai_nonstream_response_header_timeout", 90)
 	viper.SetDefault("gateway.grok_response_header_timeout", 120)
 	viper.SetDefault("gateway.openai_first_output_timeout_seconds", 0)
 	viper.SetDefault("gateway.openai_high_effort_first_output_timeout_seconds", 0)
@@ -3290,6 +3295,9 @@ func (c *Config) Validate() error {
 	}
 	if c.Gateway.OpenAIImageResponseHeaderTimeout < 0 {
 		return fmt.Errorf("gateway.openai_image_response_header_timeout must be non-negative")
+	}
+	if c.Gateway.OpenAINonStreamResponseHeaderTimeout < 0 {
+		return fmt.Errorf("gateway.openai_nonstream_response_header_timeout must be non-negative")
 	}
 	if c.Gateway.GrokResponseHeaderTimeout < 0 || c.Gateway.GrokResponseHeaderTimeout > 1800 {
 		return fmt.Errorf("gateway.grok_response_header_timeout must be between 0-1800 seconds")

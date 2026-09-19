@@ -320,6 +320,15 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 						)
 						return
 					}
+					if openAINonStreamFailoverBudgetExceeded(h.cfg, reqStream, requestStart) {
+						reqLog.Warn("openai_chat_completions.failover_skipped_nonstream_budget_exceeded",
+							zap.Int64("account_id", account.ID),
+							zap.Int("upstream_status", failoverErr.StatusCode),
+							zap.Duration("elapsed", time.Since(requestStart)),
+						)
+						h.handleFailoverExhausted(c, failoverErr, streamStarted)
+						return
+					}
 					if c.Writer.Size() != writerSizeBeforeForward {
 						h.gatewayService.ObserveOpenAIAccountHealthFailure(c.Request.Context(), account, err)
 						h.handleFailoverExhausted(c, failoverErr, true)

@@ -645,6 +645,36 @@ func (s *HTTPUpstreamSuite) TestOpenAIProfileCustomHeaderTimeout() {
 	require.Equal(s.T(), 1800*time.Second, transport.ResponseHeaderTimeout)
 }
 
+func (s *HTTPUpstreamSuite) TestOpenAINonStreamProfileUsesOwnHeaderTimeout() {
+	s.cfg.Gateway = config.GatewayConfig{
+		ResponseHeaderTimeout:                600,
+		OpenAIResponseHeaderTimeout:          50,
+		OpenAINonStreamResponseHeaderTimeout: 90,
+		OpenAIHTTP2:                          config.GatewayOpenAIHTTP2Config{Enabled: true},
+	}
+	svc := s.newService()
+	stream, err := svc.getClientEntry("", 1, 1, service.HTTPUpstreamProfileOpenAI, false, false)
+	require.NoError(s.T(), err)
+	nonStream, err := svc.getClientEntry("", 1, 1, service.HTTPUpstreamProfileOpenAINonStream, false, false)
+	require.NoError(s.T(), err)
+
+	streamTransport, ok := stream.client.Transport.(*http.Transport)
+	require.True(s.T(), ok, "expected *http.Transport")
+	nonStreamTransport, ok := nonStream.client.Transport.(*http.Transport)
+	require.True(s.T(), ok, "expected *http.Transport")
+	require.Equal(s.T(), 50*time.Second, streamTransport.ResponseHeaderTimeout)
+	require.Equal(s.T(), 90*time.Second, nonStreamTransport.ResponseHeaderTimeout)
+	require.Equal(s.T(), upstreamProtocolModeOpenAIH2, nonStream.protocolMode)
+
+	// 同账号流式与非流式交替请求时各自复用，不互相淘汰重建
+	stream2, err := svc.getClientEntry("", 1, 1, service.HTTPUpstreamProfileOpenAI, false, false)
+	require.NoError(s.T(), err)
+	nonStream2, err := svc.getClientEntry("", 1, 1, service.HTTPUpstreamProfileOpenAINonStream, false, false)
+	require.NoError(s.T(), err)
+	require.Same(s.T(), stream, stream2)
+	require.Same(s.T(), nonStream, nonStream2)
+}
+
 func (s *HTTPUpstreamSuite) TestOpenAIImageProfileUsesOwnHeaderTimeout() {
 	s.cfg.Gateway = config.GatewayConfig{
 		ResponseHeaderTimeout:            600,

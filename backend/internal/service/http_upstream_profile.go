@@ -1,6 +1,10 @@
 package service
 
-import "context"
+import (
+	"context"
+
+	"github.com/tidwall/gjson"
+)
 
 // HTTPUpstreamProfile marks HTTP upstream requests that need provider-specific
 // transport policy.
@@ -15,12 +19,25 @@ const (
 	// header timeout: image upstreams answer after the whole image is rendered
 	// (45-100s, streaming included), far past the text first-byte budget.
 	HTTPUpstreamProfileOpenAIImage HTTPUpstreamProfile = "openai_image"
+	// HTTPUpstreamProfileOpenAINonStream is the OpenAI transport policy for
+	// non-streaming text requests. The upstream answers only after the whole
+	// completion is generated, so the streaming first-byte budget does not fit.
+	HTTPUpstreamProfileOpenAINonStream HTTPUpstreamProfile = "openai_nonstream"
 )
 
 // IsOpenAI reports whether the profile uses the OpenAI transport policy
 // (HTTP/2 preference, proxy fallback accounting).
 func (p HTTPUpstreamProfile) IsOpenAI() bool {
-	return p == HTTPUpstreamProfileOpenAI || p == HTTPUpstreamProfileOpenAIImage
+	return p == HTTPUpstreamProfileOpenAI || p == HTTPUpstreamProfileOpenAIImage || p == HTTPUpstreamProfileOpenAINonStream
+}
+
+// OpenAITextUpstreamProfile picks the OpenAI text transport profile from the
+// body actually sent upstream, so forced-stream rewrites are honored.
+func OpenAITextUpstreamProfile(body []byte) HTTPUpstreamProfile {
+	if gjson.GetBytes(body, "stream").Bool() {
+		return HTTPUpstreamProfileOpenAI
+	}
+	return HTTPUpstreamProfileOpenAINonStream
 }
 
 type httpUpstreamProfileContextKey struct{}
@@ -47,7 +64,7 @@ func HTTPUpstreamProfileFromContext(ctx context.Context) HTTPUpstreamProfile {
 		return HTTPUpstreamProfileDefault
 	}
 	switch profile {
-	case HTTPUpstreamProfileOpenAI, HTTPUpstreamProfileOpenAIImage, HTTPUpstreamProfileGrok:
+	case HTTPUpstreamProfileOpenAI, HTTPUpstreamProfileOpenAIImage, HTTPUpstreamProfileOpenAINonStream, HTTPUpstreamProfileGrok:
 		return profile
 	default:
 		return HTTPUpstreamProfileDefault
