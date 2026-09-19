@@ -89,6 +89,9 @@ func (r *usageLogRepository) GetDashboardStats(ctx context.Context) (*DashboardS
 	if err := r.fillDashboardUsageStatsAggregated(ctx, stats, todayStart, now); err != nil {
 		return nil, err
 	}
+	if err := r.applyUsageCostCalibration(ctx, stats, todayStart, nil, nil); err != nil {
+		return nil, err
+	}
 
 	rpm, tpm, err := r.getPerformanceStats(ctx, 0)
 	if err != nil {
@@ -115,6 +118,9 @@ func (r *usageLogRepository) GetDashboardStatsWithRange(ctx context.Context, sta
 		return nil, err
 	}
 	if err := r.fillDashboardUsageStatsFromUsageLogs(ctx, stats, startUTC, endUTC, todayStart, now); err != nil {
+		return nil, err
+	}
+	if err := r.applyUsageCostCalibration(ctx, stats, todayStart, &startUTC, &endUTC); err != nil {
 		return nil, err
 	}
 
@@ -368,6 +374,31 @@ func (r *usageLogRepository) fillDashboardUsageStatsFromUsageLogs(ctx context.Co
 		return err
 	}
 
+	return nil
+}
+
+// applyUsageCostCalibration 在看板成本上叠加上游账本校准差额（见 usage_cost_calibrations）：
+// usage_logs 只含我方完成的请求，上游对被放弃的尝试也扣费。rangeStart/rangeEnd 为 nil 时取全部日期。
+func (r *usageLogRepository) applyUsageCostCalibration(ctx context.Context, stats *DashboardStats, todayStart time.Time, rangeStart, rangeEnd *time.Time) error {
+	loc := timezone.Location()
+	var fromDate, toDate any
+	if rangeStart != nil && rangeEnd != nil {
+		fromDate = rangeStart.In(loc).Format("2006-01-02")
+		toDate = rangeEnd.In(loc).Format("2006-01-02")
+	}
+	query := `
+		SELECT
+			COALESCE(SUM(adjustment) FILTER (WHERE ($1::date IS NULL OR bucket_date >= $1::date) AND ($2::date IS NULL OR bucket_date < $2::date)), 0),
+			COALESCE(SUM(adjustment) FILTER (WHERE bucket_date = $3::date), 0)
+		FROM usage_cost_calibrations
+		WHERE status = 'ok'
+	`
+	var totalAdj, todayAdj float64
+	if err := scanSingleRow(ctx, r.sql, query, []any{fromDate, toDate, todayStart.In(loc).Format("2006-01-02")}, &totalAdj, &todayAdj); err != nil {
+		return err
+	}
+	stats.TotalAccountCost += totalAdj
+	stats.TodayAccountCost += todayAdj
 	return nil
 }
 
